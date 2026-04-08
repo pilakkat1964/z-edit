@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(zedit
-    VERSION      0.6.2
+    VERSION      0.6.3
     DESCRIPTION  "Smart file editor launcher"
     HOMEPAGE_URL "https://github.com/proteus-cpi/zedit"
     LANGUAGES    NONE        # Python only — no C/C++ compiler needed
