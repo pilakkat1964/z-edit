@@ -50,7 +50,8 @@ except ImportError:
 # Constants
 # ---------------------------------------------------------------------------
 
-APP_NAME = "zedit"
+APP_NAME    = "zedit"
+APP_VERSION = "0.6.4"
 
 # Candidate directories for the 'ed' symlink alias, tried in order.
 # These are all user-accessible or local-admin locations that do not
@@ -1619,7 +1620,12 @@ Use `{APP_NAME} --init-config` to write a starter config to the global location.
         ),
     )
     p.add_argument(
-        "-v", "--verbose",
+        "-v", "--version",
+        action="version",
+        version=f"%(prog)s {APP_VERSION}",
+    )
+    p.add_argument(
+        "--verbose",
         action="store_true",
         help="Show resolution details on stderr.",
     )
