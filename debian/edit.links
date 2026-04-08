@@ -1,0 +1,9 @@
+# No system-level 'ed' symlink is created by this package to avoid conflicts
+# with the classic ed(1) line editor (/usr/bin/ed from the 'ed' package).
+#
+# Users can install a safe alias with:
+#   edit --install-alias
+# which creates the symlink in the first writable directory from:
+#   ~/.local/bin   /opt/bin   /usr/local/bin
+#
+# The postinst script creates /usr/local/bin/ed with full conflict checking.

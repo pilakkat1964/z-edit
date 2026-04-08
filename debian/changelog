@@ -1,0 +1,8 @@
+edit (0.1.0-1) unstable; urgency=low
+
+  * Initial packaging.
+  * Smart file editor launcher based on MIME type or file extension.
+  * Configurable editor mapping via layered TOML files.
+  * System-wide config installed to /etc/edit/config.toml.
+
+ -- Maintainer <maintainer@example.com>  Tue, 08 Apr 2026 07:00:00 +0000

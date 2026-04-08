@@ -1,0 +1,87 @@
+# edit — system-wide configuration
+#
+# This file is installed to /etc/edit/config.toml by the OS package.
+# It provides site-wide defaults that apply to all users.
+#
+# Individual users can override any setting in:
+#   ~/.config/edit/config.toml   (user-global)
+#   ./.edit.toml                 (project-local, CWD)
+#
+# Config is deep-merged: per-user and per-project files add to or override
+# entries here without removing those they don't mention.
+#
+# Editor values:
+#   - Plain command name:    "vim", "nano", "gedit", "code"
+#   - With flags:            "code --wait", "vim -R"
+#   - Sentinel "$EDITOR":   resolved at runtime via $VISUAL → $EDITOR → vi
+
+[defaults]
+# Fall back to whatever the user has set in $VISUAL / $EDITOR, then vi.
+editor = "$EDITOR"
+
+# When both a MIME mapping and an extension mapping match, the MIME type
+# takes precedence.  Set to false to prefer the extension.
+prefer_mime = true
+
+# ── MIME-type mappings ───────────────────────────────────────────────────────
+# Keys are standard MIME types; values are editor commands.
+# The base type alone ("text", "image") acts as a wildcard fallback.
+[mime_types]
+"text/plain"            = "$EDITOR"
+"text/x-python"         = "$EDITOR"
+"text/x-script.python"  = "$EDITOR"
+"text/html"             = "$EDITOR"
+"text/css"              = "$EDITOR"
+"text/javascript"       = "$EDITOR"
+"text/x-shellscript"    = "$EDITOR"
+"text/x-sh"             = "$EDITOR"
+"application/json"      = "$EDITOR"
+"application/xml"       = "$EDITOR"
+"application/toml"      = "$EDITOR"
+
+# Examples for graphical / multimedia types — uncomment and adjust as needed:
+# "application/pdf"     = "evince"
+# "image/png"           = "gimp"
+# "image/jpeg"          = "gimp"
+# "audio/mpeg"          = "audacity"
+# "video/mp4"           = "vlc"
+
+# ── Extension mappings ───────────────────────────────────────────────────────
+# Keys are lowercase file extensions including the leading dot.
+[extensions]
+".py"   = "$EDITOR"
+".pyi"  = "$EDITOR"
+".js"   = "$EDITOR"
+".ts"   = "$EDITOR"
+".jsx"  = "$EDITOR"
+".tsx"  = "$EDITOR"
+".html" = "$EDITOR"
+".htm"  = "$EDITOR"
+".css"  = "$EDITOR"
+".scss" = "$EDITOR"
+".json" = "$EDITOR"
+".xml"  = "$EDITOR"
+".yaml" = "$EDITOR"
+".yml"  = "$EDITOR"
+".toml" = "$EDITOR"
+".txt"  = "$EDITOR"
+".md"   = "$EDITOR"
+".rst"  = "$EDITOR"
+".sh"   = "$EDITOR"
+".bash" = "$EDITOR"
+".zsh"  = "$EDITOR"
+".fish" = "$EDITOR"
+".c"    = "$EDITOR"
+".h"    = "$EDITOR"
+".cpp"  = "$EDITOR"
+".hpp"  = "$EDITOR"
+".rs"   = "$EDITOR"
+".go"   = "$EDITOR"
+".java" = "$EDITOR"
+".rb"   = "$EDITOR"
+".php"  = "$EDITOR"
+".sql"  = "$EDITOR"
+".tf"   = "$EDITOR"
+".ini"  = "$EDITOR"
+".cfg"  = "$EDITOR"
+".conf" = "$EDITOR"

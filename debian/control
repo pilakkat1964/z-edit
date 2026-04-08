@@ -1,0 +1,41 @@
+Source: edit
+Section: utils
+Priority: optional
+Maintainer: Maintainer <maintainer@example.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-python,
+ python3-all,
+ python3-setuptools,
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/example/edit
+Vcs-Browser: https://github.com/example/edit
+Vcs-Git: https://github.com/example/edit.git
+
+Package: edit
+Architecture: all
+Depends:
+ ${python3:Depends},
+ ${misc:Depends},
+ python3 (>= 3.11),
+Recommends:
+ python3-magic,
+Suggests:
+ vim | nano | emacs | micro,
+Description: smart file editor launcher
+ Opens files in the appropriate editor based on their MIME type (detected
+ via libmagic or the mimetypes stdlib) or file extension.
+ .
+ The editor mapping is fully configurable through TOML configuration files
+ layered at three levels: system-wide (/etc/edit/config.toml), per-user
+ (~/.config/edit/config.toml), and per-project (.edit.toml in the CWD).
+ .
+ Features include:
+  * Accurate MIME detection via libmagic (python3-magic) with stdlib fallback
+  * Explicit --mime TYPE override on the command line
+  * MIME type takes precedence over extension (configurable)
+  * Editor values support flags: "code --wait", "vim -R", etc.
+  * --dry-run / --list for inspection without launching an editor
+  * --map FILE to interactively update the editor mapping for a file
+  * --install-alias to create an 'ed' shortcut without packaging conflicts

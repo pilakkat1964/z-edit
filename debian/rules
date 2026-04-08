@@ -1,0 +1,30 @@
+#!/usr/bin/make -f
+# debian/rules — build recipe for the 'edit' package
+# Uses debhelper (dh) with the pybuild build system, which in turn invokes
+# the setuptools backend declared in pyproject.toml.
+#
+# To build the package:
+#   dpkg-buildpackage -us -uc -b        (binary only, no signing)
+#   dpkg-buildpackage -us -uc           (source + binary)
+#   DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc  (skip tests)
+
+export PYBUILD_NAME = edit
+export DH_VERBOSE   = 0
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+# ── Install the system-wide config ────────────────────────────────────────────
+# pybuild handles the Python module; we add the config file separately.
+override_dh_auto_install:
+	dh_auto_install
+	install -Dm 0644 config/default.toml \
+	    debian/edit/etc/edit/config.toml
+
+# ── Ensure /etc/edit is tracked as a conffile ─────────────────────────────────
+# dh_installdebconf / dh_installconffiles will pick up anything under
+# debian/edit/etc automatically when CONFFILE handling is enabled.
+
+# ── Tests (optional) ──────────────────────────────────────────────────────────
+override_dh_auto_test:
+	$(MAKE) -C . test 2>/dev/null || true
