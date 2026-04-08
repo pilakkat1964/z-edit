@@ -294,12 +294,14 @@ they start with `/`.
 ### 4.5 Build step
 
 ```bash
-cmake --build build               # build all targets (wheel by default)
-cmake --build build --target wheel    # build only the wheel
-cmake --build build --target deb      # build wheel then generate .deb
-cmake --build build --target tarball  # build wheel then generate .tar.gz
-cmake --build build -j4           # parallel build (4 jobs)
-cmake --build build --verbose     # print full commands
+cmake --build build                      # build all targets (wheel by default)
+cmake --build build --target wheel       # build only the wheel
+cmake --build build --target deb         # build wheel then generate .deb
+cmake --build build --target tarball     # build wheel then generate .tar.gz
+cmake --build build --target clean       # remove files produced by build targets
+cmake --build build --target distclean   # remove build dir + Python caches/archives
+cmake --build build -j4                  # parallel build (4 jobs)
+cmake --build build --verbose            # print full commands
 ```
 
 The `wheel` target runs:
@@ -367,6 +369,8 @@ With `CMAKE_INSTALL_PREFIX=/usr/local`:
 | `tarball` | Custom | Run CPack with the TGZ generator. |
 | `package` | CPack built-in | Run CPack with all configured generators (DEB + TGZ). |
 | `install` | CMake built-in | Install all components to the prefix. |
+| `clean` | CMake built-in | Remove files produced by build targets (wheel, packages, etc.). |
+| `distclean` | Custom | Remove the build directory **and** source-tree artifacts (`__pycache__`, `*.egg-info`, loose `zedit-*.tar.gz`/`.deb` archives). Restores the source tree to a fresh-clone state. See `cmake/distclean.cmake`. |
 
 ---
 
@@ -821,8 +825,9 @@ incremented independently of the upstream version for packaging-only changes.
 
 4. **Build and test all artefacts**:
    ```bash
-   # Clean slate
-   rm -rf build dist zedit.egg-info .pybuild
+   # Clean slate — use the distclean target if a build dir already exists,
+   # or just remove it manually for a first-time build
+   cmake --build build --target distclean   # or: rm -rf build
 
    # Python wheel
    python -m build --wheel
