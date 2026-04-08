@@ -372,7 +372,270 @@ prefer_mime = true
 """
 
 # ---------------------------------------------------------------------------
-# TOML write helpers
+# Dynamic user-config generation via XDG MIME defaults
+# ---------------------------------------------------------------------------
+
+# MIME types to probe for OS-installed default handlers, mapped to:
+#   (fallback_cmd, [extensions_that_use_this_mime])
+# Text/code types are intentionally absent — they always stay as $EDITOR.
+_XDG_PROBE_MIMES: list[tuple[str, str, list[str]]] = [
+    # Documents
+    ("application/pdf",             "evince",              [".pdf"]),
+    ("application/postscript",      "evince",              [".ps", ".eps"]),
+    ("application/msword",          "libreoffice --writer", [".doc"]),
+    ("application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    "libreoffice --writer", [".docx"]),
+    ("application/vnd.oasis.opendocument.text",
+                                    "libreoffice --writer", [".odt"]),
+    ("application/rtf",             "libreoffice --writer", [".rtf"]),
+    ("application/vnd.ms-excel",    "libreoffice --calc",  [".xls"]),
+    ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    "libreoffice --calc",   [".xlsx"]),
+    ("application/vnd.oasis.opendocument.spreadsheet",
+                                    "libreoffice --calc",   [".ods"]),
+    ("text/csv",                    "libreoffice --calc",   [".csv"]),
+    ("application/vnd.ms-powerpoint",
+                                    "libreoffice --impress", [".ppt"]),
+    ("application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                    "libreoffice --impress", [".pptx"]),
+    ("application/vnd.oasis.opendocument.presentation",
+                                    "libreoffice --impress", [".odp"]),
+    # Images
+    ("image/png",   "eog", [".png"]),
+    ("image/jpeg",  "eog", [".jpg", ".jpeg"]),
+    ("image/gif",   "eog", [".gif"]),
+    ("image/webp",  "eog", [".webp"]),
+    ("image/bmp",   "eog", [".bmp"]),
+    ("image/tiff",  "eog", [".tiff", ".tif"]),
+    ("image/x-icon","eog", [".ico"]),
+    ("image/heic",  "eog", [".heic", ".heif"]),
+    ("image/svg+xml", "inkscape", [".svg"]),
+    # Audio
+    ("audio/mpeg",  "rhythmbox", [".mp3"]),
+    ("audio/ogg",   "rhythmbox", [".ogg"]),
+    ("audio/flac",  "rhythmbox", [".flac"]),
+    ("audio/x-flac","rhythmbox", []),
+    ("audio/wav",   "rhythmbox", [".wav"]),
+    ("audio/mp4",   "rhythmbox", [".m4a"]),
+    ("audio/aac",   "rhythmbox", [".aac"]),
+    ("audio/opus",  "rhythmbox", [".opus"]),
+    ("audio/x-ms-wma","rhythmbox",[".wma"]),
+    # Video
+    ("video/mp4",          "totem", [".mp4"]),
+    ("video/x-matroska",   "totem", [".mkv"]),
+    ("video/x-msvideo",    "totem", [".avi"]),
+    ("video/quicktime",    "totem", [".mov"]),
+    ("video/webm",         "totem", [".webm"]),
+    ("video/x-ms-wmv",     "totem", [".wmv"]),
+    ("video/mpeg",         "totem", [".mpg", ".mpeg"]),
+    ("video/ogg",          "totem", [".ogv"]),
+    ("video/3gpp",         "totem", [".3gp"]),
+    # Archives
+    ("application/zip",              "file-roller", [".zip"]),
+    ("application/x-tar",            "file-roller", [".tar"]),
+    ("application/gzip",             "file-roller", [".gz"]),
+    ("application/x-bzip2",          "file-roller", [".bz2"]),
+    ("application/x-xz",             "file-roller", [".xz"]),
+    ("application/x-7z-compressed",  "file-roller", [".7z"]),
+    ("application/x-rar",            "file-roller", [".rar"]),
+    ("application/x-rar-compressed", "file-roller", []),
+    ("application/x-zstd-compressed-tar", "file-roller", [".zst"]),
+    # E-books
+    ("application/epub+zip",          "foliate", [".epub"]),
+    ("application/x-mobipocket-ebook","foliate", [".mobi"]),
+]
+
+
+def _parse_desktop_exec(desktop_path: Path) -> str | None:
+    """Extract and clean the Exec command from a .desktop file."""
+    try:
+        for line in desktop_path.read_text(errors="replace").splitlines():
+            if line.startswith("Exec="):
+                cmd = line[5:].strip()
+                # Remove field-code placeholders: %f %F %u %U %i %c %k …
+                cmd = re.sub(r"\s*%[a-zA-Z]", "", cmd).strip()
+                return cmd if cmd else None
+    except OSError:
+        pass
+    return None
+
+
+def _desktop_to_cmd(desktop_file: str) -> str | None:
+    """Resolve a .desktop filename to its Exec command."""
+    search_dirs = [
+        Path.home() / ".local/share/applications",
+        Path("/usr/share/applications"),
+        Path("/usr/local/share/applications"),
+    ]
+    for d in search_dirs:
+        p = d / desktop_file
+        if p.exists():
+            return _parse_desktop_exec(p)
+    return None
+
+
+def _query_xdg_default(mime_type: str) -> str | None:
+    """Return the resolved Exec command for *mime_type* via xdg-mime, or None."""
+    try:
+        result = subprocess.run(
+            ["xdg-mime", "query", "default", mime_type],
+            capture_output=True, text=True, timeout=3,
+        )
+        desktop_file = result.stdout.strip()
+        if not desktop_file:
+            return None
+        return _desktop_to_cmd(desktop_file)
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+
+
+def generate_user_config_content() -> str:
+    """Build a user config TOML by querying the OS for its default handlers.
+
+    For each MIME type in *_XDG_PROBE_MIMES* the function calls xdg-mime to
+    find the installed default application and resolves the .desktop Exec line
+    to a usable command string.  Text and source-code types always stay as
+    ``$EDITOR`` so the user's terminal editor preference is preserved.
+
+    Falls back to the static Ubuntu 24.04 defaults when xdg-mime is unavailable
+    or returns no result.
+    """
+    import datetime
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    # Probe OS defaults
+    resolved_mimes: dict[str, str] = {}   # mime → command
+    resolved_exts: dict[str, str]  = {}   # ext  → command
+
+    for mime, fallback, exts in _XDG_PROBE_MIMES:
+        cmd = _query_xdg_default(mime) or fallback
+        resolved_mimes[mime] = cmd
+        for ext in exts:
+            # Extension uses the command resolved for its primary MIME type,
+            # but only if the same MIME's resolution hasn't already assigned
+            # a different command to this extension (first probe wins).
+            if ext not in resolved_exts:
+                resolved_exts[ext] = cmd
+
+    # Build TOML manually so we can add per-section comments
+    lines: list[str] = [
+        "# zedit — user configuration",
+        f"# Auto-generated on {now} from OS MIME defaults (xdg-mime).",
+        "#",
+        "# Text/code files are intentionally left as \"$EDITOR\" so your",
+        "# preferred terminal editor ($VISUAL / $EDITOR env vars) is used.",
+        "#",
+        "# Override any entry or add new ones below.  Changes are never",
+        "# overwritten automatically (use --init-config --force to regenerate).",
+        "",
+        "[defaults]",
+        'editor      = "$EDITOR"',
+        "prefer_mime = true",
+        "",
+        "# ── Text & source code (" + '"$EDITOR" = defer to $VISUAL/$EDITOR/vi) ─',
+        "[mime_types]",
+        '"text/plain"                    = "$EDITOR"',
+        '"text/x-python"                 = "$EDITOR"',
+        '"text/x-script.python"          = "$EDITOR"',
+        '"text/html"                     = "$EDITOR"',
+        '"text/css"                      = "$EDITOR"',
+        '"text/javascript"               = "$EDITOR"',
+        '"text/x-shellscript"            = "$EDITOR"',
+        '"text/x-sh"                     = "$EDITOR"',
+        '"text/x-csrc"                   = "$EDITOR"',
+        '"text/x-c++src"                 = "$EDITOR"',
+        '"text/x-java"                   = "$EDITOR"',
+        '"text/x-ruby"                   = "$EDITOR"',
+        '"text/x-go"                     = "$EDITOR"',
+        '"text/x-rust"                   = "$EDITOR"',
+        '"text/x-markdown"               = "$EDITOR"',
+        '"application/json"              = "$EDITOR"',
+        '"application/xml"               = "$EDITOR"',
+        '"application/toml"              = "$EDITOR"',
+        '"application/x-yaml"            = "$EDITOR"',
+        "",
+        "# ── OS-detected defaults ────────────────────────────────────────────",
+    ]
+
+    # Group probed MIME entries by category (comment headers)
+    categories = [
+        ("Documents",
+         ["application/pdf", "application/postscript",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.oasis.opendocument.text", "application/rtf",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/vnd.oasis.opendocument.spreadsheet", "text/csv",
+          "application/vnd.ms-powerpoint",
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          "application/vnd.oasis.opendocument.presentation"]),
+        ("Images",
+         ["image/png","image/jpeg","image/gif","image/webp","image/bmp",
+          "image/tiff","image/x-icon","image/heic","image/heif","image/svg+xml"]),
+        ("Audio",
+         ["audio/mpeg","audio/ogg","audio/flac","audio/x-flac","audio/wav",
+          "audio/mp4","audio/aac","audio/opus","audio/x-ms-wma"]),
+        ("Video",
+         ["video/mp4","video/x-matroska","video/x-msvideo","video/quicktime",
+          "video/webm","video/x-ms-wmv","video/mpeg","video/ogg","video/3gpp"]),
+        ("Archives",
+         ["application/zip","application/x-tar","application/gzip",
+          "application/x-bzip2","application/x-xz","application/x-7z-compressed",
+          "application/x-rar","application/x-rar-compressed",
+          "application/x-zstd-compressed-tar"]),
+        ("E-books",
+         ["application/epub+zip","application/x-mobipocket-ebook"]),
+    ]
+
+    def _fmt_mime(k: str) -> str:
+        escaped = k.replace('"', '\\"')
+        return f'"{escaped}"'
+
+    for cat_name, mimes in categories:
+        lines.append(f"# {cat_name}")
+        for m in mimes:
+            if m in resolved_mimes:
+                cmd = resolved_mimes[m]
+                escaped_cmd = cmd.replace("\\", "\\\\").replace('"', '\\"')
+                lines.append(f"{_fmt_mime(m):<60} = \"{escaped_cmd}\"")
+        lines.append("")
+
+    # Extension mappings
+    ext_categories = [
+        ("Text / source code", [
+            ".txt",".md",".rst",".py",".pyi",".js",".mjs",".cjs",".ts",".tsx",
+            ".jsx",".html",".htm",".css",".scss",".sass",".less",".json",
+            ".jsonc",".xml",".yaml",".yml",".toml",".ini",".cfg",".conf",
+            ".sh",".bash",".zsh",".fish",".c",".h",".cpp",".cc",".cxx",
+            ".hpp",".hxx",".rs",".go",".java",".kt",".rb",".php",".sql",
+            ".tf",".lua",".r",".R",".swift",".dart",
+        ]),
+        ("Documents", [".pdf",".ps",".eps",".doc",".docx",".odt",".rtf",
+                       ".xls",".xlsx",".ods",".csv",".ppt",".pptx",".odp"]),
+        ("Images",    [".png",".jpg",".jpeg",".gif",".webp",".bmp",
+                       ".tiff",".tif",".ico",".heic",".heif",".svg"]),
+        ("Audio",     [".mp3",".ogg",".flac",".wav",".m4a",".aac",".wma",".opus"]),
+        ("Video",     [".mp4",".mkv",".avi",".mov",".webm",".wmv",
+                       ".mpg",".mpeg",".ogv",".3gp"]),
+        ("Archives",  [".zip",".tar",".gz",".bz2",".xz",".7z",".rar",".zst"]),
+        ("E-books",   [".epub",".mobi"]),
+    ]
+
+    lines.append("[extensions]")
+    for cat_name, exts in ext_categories:
+        lines.append(f"# {cat_name}")
+        for ext in exts:
+            if ext in resolved_exts:
+                cmd = resolved_exts[ext]
+            else:
+                # Text/code stays as $EDITOR
+                cmd = "$EDITOR"
+            escaped_cmd = cmd.replace("\\", "\\\\").replace('"', '\\"')
+            lines.append(f"{_fmt_mime(ext):<10} = \"{escaped_cmd}\"")
+        lines.append("")
+
+    return "\n".join(lines) + "\n"
 # ---------------------------------------------------------------------------
 # tomllib is read-only by design; these helpers serialise our limited config
 # schema (one level of nested string/bool tables) back to disk.
@@ -697,39 +960,30 @@ def _resolve_sentinel(value: str) -> str:
 # Config scaffold helper
 # ---------------------------------------------------------------------------
 
-def write_default_config(path: Path) -> None:
-    """Write a starter *user* config to *path* (~/.config/zedit/config.toml).
+def write_default_config(path: Path, *, force: bool = False) -> int:
+    """Write a dynamically-generated user config to *path*.
 
-    Only creates a minimal template for the user to customise.
-    To write the system-wide config use write_system_config().
+    Queries the OS via xdg-mime to discover the currently installed default
+    application for each common file type, then writes a TOML config reflecting
+    those choices.  Text and source-code types always stay as ``$EDITOR``.
+
+    Does NOT overwrite an existing file unless *force* is True.
+    Returns 0 on success, non-zero on error.
     """
-    header = """\
-# zedit — user configuration file
-#
-# This file overrides system defaults on a per-user basis.
-# Add or change mappings here; anything not mentioned falls back to
-# /opt/etc/zedit/config.toml (system-wide) then built-in defaults.
-#
-# Locations (later overrides earlier):
-#   /opt/etc/zedit/config.toml    — system-wide (managed by admin)
-#   ~/.config/zedit/config.toml   — this file
-#   ./.zedit.toml                 — project-local override
-#
-# Editor values:
-#   Plain command:  "vim", "nano", "code --wait"
-#   Sentinel:       "$EDITOR"  →  $VISUAL → $EDITOR → vi
-#
-# Example overrides:
-#   [mime_types]
-#   "application/pdf" = "zathura"   # prefer zathura over evince
-#
-#   [extensions]
-#   ".md" = "typora"                # open Markdown in Typora
-#
-"""
+    if path.exists() and not force:
+        print(
+            f"User config already exists: {path}\n"
+            f"Use --force (-f) to overwrite it.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print("Querying OS for installed application defaults…", file=sys.stderr)
+    content = generate_user_config_content()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(header + _DEFAULT_CONFIG_TOML)
+    path.write_text(content)
     print(f"✓ User config written to {path}")
+    return 0
 
 
 def write_system_config(path: Path, *, force: bool = False) -> int:
@@ -1284,8 +1538,10 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- --init-config ---
     if args.init_config:
-        # Always write user config
-        write_default_config(_user_config_path())
+        # Write user config (dynamically generated from OS MIME defaults)
+        rc = write_default_config(_user_config_path(), force=args.force)
+        if rc != 0:
+            return rc
         # With -f/--force also write system config
         if args.force:
             rc = write_system_config(_system_config_path(), force=True)
