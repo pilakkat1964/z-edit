@@ -138,6 +138,7 @@ if(ZEDIT_INSTALL_ZE_ALIAS)
     install(CODE
         "set(_bindir \"\$ENV{DESTDIR}${CMAKE_INSTALL_FULL_BINDIR}\")
         set(_link \"\${_bindir}/ze\")
+        file(MAKE_DIRECTORY \"\${_bindir}\")
         # Warn if a 'ze' already exists at this path and is not our symlink.
         if(EXISTS \"\${_link}\" OR IS_SYMLINK \"\${_link}\")
             execute_process(
