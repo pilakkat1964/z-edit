@@ -1,5 +1,9 @@
 # zedit — smart file editor launcher
 
+> **About this project:** `zedit` was designed and built to explore the power of
+> AI-assisted development. The entire codebase was written primarily using
+> **Claude Sonnet 4.6** (the "medium" model) accessed through **GitHub Copilot**.
+
 `zedit` opens files in the right editor automatically. It detects each file's
 MIME type (via **libmagic** or the `mimetypes` stdlib) and maps it to an editor
 through a layered TOML configuration — system-wide, per-user, and per-project.
