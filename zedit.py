@@ -8,7 +8,7 @@ over the extension when both would match unless overridden by config.
 
 Configuration is loaded from (in order, later entries override earlier):
   1. Built-in defaults
-  2. /etc/zedit/config.toml        (system-wide config, path via $ZEDIT_SYSCONFDIR)
+  2. /opt/etc/zedit/config.toml   (system-wide config, path via $ZEDIT_SYSCONFDIR)
   3. ~/.config/zedit/config.toml   (user global config)
   4. ./.zedit.toml                 (project-local config, overrides global)
   5. --config FILE                (ad-hoc override on the command line)
@@ -798,7 +798,7 @@ def _system_config_path() -> Path:
     environment variable (used by staged/packaged installs to point at the
     correct prefix before the final install step completes).
     """
-    sysconfdir = os.environ.get("ZEDIT_SYSCONFDIR", "/etc")
+    sysconfdir = os.environ.get("ZEDIT_SYSCONFDIR", "/opt/etc")
     return Path(sysconfdir) / APP_NAME / "config.toml"
 
 
@@ -1527,7 +1527,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""\
 Config file locations (applied in order, later overrides earlier):
-  /etc/{APP_NAME}/config.toml        system-wide  (set $ZEDIT_SYSCONFDIR to override /etc)
+  /opt/etc/{APP_NAME}/config.toml   system-wide  (set $ZEDIT_SYSCONFDIR to override /opt/etc)
   ~/.config/{APP_NAME}/config.toml   user-global
   ./.{APP_NAME}.toml                 project-local (CWD)
   FILE given to --config             ad-hoc override
