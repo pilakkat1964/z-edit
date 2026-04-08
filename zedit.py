@@ -65,15 +65,12 @@ _ALIAS_CANDIDATES: list[Path] = [
 # Bundled defaults — used when no config file exists.
 # Values are intentionally minimal so that $VISUAL / $EDITOR take over when
 # no explicit mapping has been configured.
+# Built-in defaults used when no config file is found at all.
+# These are minimal — they defer all choices to the $EDITOR environment
+# variable.  The real rich defaults live in _SYSTEM_CONFIG_TOML below.
 _DEFAULT_CONFIG_TOML = """\
 [defaults]
-# Final-fallback editor when nothing else matches.
-# The special value "$EDITOR" instructs the app to consult the environment
-# variables $VISUAL and $EDITOR (in that order) before giving up.
 editor = "$EDITOR"
-
-# When a file's MIME type AND its extension both have a mapping, prefer the
-# MIME-type mapping.  Set to false to prefer the extension mapping.
 prefer_mime = true
 
 [mime_types]
@@ -122,6 +119,256 @@ prefer_mime = true
 ".rb"   = "$EDITOR"
 ".php"  = "$EDITOR"
 ".sql"  = "$EDITOR"
+"""
+
+# System-level config installed to /opt/etc/zedit/config.toml.
+# Maps common file types to the standard Ubuntu 24.04 LTS desktop applications.
+# Users override individual entries in ~/.config/zedit/config.toml.
+_SYSTEM_CONFIG_TOML = """\
+# zedit — system-wide configuration
+# Installed to /opt/etc/zedit/config.toml
+#
+# Generated for Ubuntu 24.04 LTS (Noble Numbat).
+# Default applications follow the Ubuntu 24.04 default desktop suite.
+#
+# Override any entry per-user in:  ~/.config/zedit/config.toml
+# Override per-project in:         ./.zedit.toml
+#
+# Editor values:
+#   Plain command:  "evince", "libreoffice --writer", "code --wait"
+#   Sentinel:       "$EDITOR"  →  resolved via $VISUAL → $EDITOR → vi
+
+[defaults]
+editor      = "$EDITOR"
+prefer_mime = true
+
+# ── Text & source code ───────────────────────────────────────────────────────
+# All plain-text and code files open in the user's preferred terminal editor.
+[mime_types]
+"text/plain"                    = "$EDITOR"
+"text/x-python"                 = "$EDITOR"
+"text/x-script.python"          = "$EDITOR"
+"text/html"                     = "$EDITOR"
+"text/css"                      = "$EDITOR"
+"text/javascript"               = "$EDITOR"
+"text/x-shellscript"            = "$EDITOR"
+"text/x-sh"                     = "$EDITOR"
+"text/x-csrc"                   = "$EDITOR"
+"text/x-c++src"                 = "$EDITOR"
+"text/x-java"                   = "$EDITOR"
+"text/x-ruby"                   = "$EDITOR"
+"text/x-go"                     = "$EDITOR"
+"text/x-rust"                   = "$EDITOR"
+"text/x-markdown"               = "$EDITOR"
+"text/x-rst"                    = "$EDITOR"
+"text/csv"                      = "libreoffice --calc"
+"text/tab-separated-values"     = "libreoffice --calc"
+
+# ── Structured data / config ─────────────────────────────────────────────────
+"application/json"              = "$EDITOR"
+"application/xml"               = "$EDITOR"
+"application/toml"              = "$EDITOR"
+"application/x-yaml"            = "$EDITOR"
+
+# ── PDF & PostScript ─────────────────────────────────────────────────────────
+# evince: GNOME document viewer, Ubuntu default PDF/PS viewer
+"application/pdf"               = "evince"
+"application/postscript"        = "evince"
+"image/x-eps"                   = "evince"
+
+# ── Office documents (LibreOffice — Ubuntu 24.04 default office suite) ───────
+"application/msword"                                                        = "libreoffice --writer"
+"application/vnd.openxmlformats-officedocument.wordprocessingml.document"  = "libreoffice --writer"
+"application/vnd.oasis.opendocument.text"                                  = "libreoffice --writer"
+"application/rtf"                                                           = "libreoffice --writer"
+
+"application/vnd.ms-excel"                                                  = "libreoffice --calc"
+"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"         = "libreoffice --calc"
+"application/vnd.oasis.opendocument.spreadsheet"                            = "libreoffice --calc"
+
+"application/vnd.ms-powerpoint"                                             = "libreoffice --impress"
+"application/vnd.openxmlformats-officedocument.presentationml.presentation" = "libreoffice --impress"
+"application/vnd.oasis.opendocument.presentation"                           = "libreoffice --impress"
+
+# ── Images ───────────────────────────────────────────────────────────────────
+# eog: Eye of GNOME — Ubuntu 24.04 default image viewer
+"image/png"                     = "eog"
+"image/jpeg"                    = "eog"
+"image/gif"                     = "eog"
+"image/webp"                    = "eog"
+"image/bmp"                     = "eog"
+"image/tiff"                    = "eog"
+"image/x-icon"                  = "eog"
+"image/heic"                    = "eog"
+"image/heif"                    = "eog"
+# inkscape: vector graphics editor (install: sudo apt install inkscape)
+"image/svg+xml"                 = "inkscape"
+# GIMP for raw/high-bit-depth editing (install: sudo apt install gimp)
+# "image/x-xcf"                 = "gimp"
+
+# ── Audio ────────────────────────────────────────────────────────────────────
+# rhythmbox: Ubuntu 24.04 default music player
+"audio/mpeg"                    = "rhythmbox"
+"audio/ogg"                     = "rhythmbox"
+"audio/flac"                    = "rhythmbox"
+"audio/x-flac"                  = "rhythmbox"
+"audio/wav"                     = "rhythmbox"
+"audio/x-wav"                   = "rhythmbox"
+"audio/mp4"                     = "rhythmbox"
+"audio/aac"                     = "rhythmbox"
+"audio/x-ms-wma"                = "rhythmbox"
+"audio/opus"                    = "rhythmbox"
+
+# ── Video ────────────────────────────────────────────────────────────────────
+# totem: GNOME Videos — Ubuntu 24.04 default video player
+"video/mp4"                     = "totem"
+"video/x-matroska"              = "totem"
+"video/x-msvideo"               = "totem"
+"video/quicktime"               = "totem"
+"video/webm"                    = "totem"
+"video/x-ms-wmv"                = "totem"
+"video/mpeg"                    = "totem"
+"video/ogg"                     = "totem"
+"video/3gpp"                    = "totem"
+
+# ── Archives ─────────────────────────────────────────────────────────────────
+# file-roller: GNOME Archive Manager — Ubuntu 24.04 default
+"application/zip"               = "file-roller"
+"application/x-tar"             = "file-roller"
+"application/gzip"              = "file-roller"
+"application/x-bzip2"           = "file-roller"
+"application/x-xz"              = "file-roller"
+"application/x-7z-compressed"   = "file-roller"
+"application/x-rar-compressed"  = "file-roller"
+"application/x-rar"             = "file-roller"
+"application/x-compressed-tar"  = "file-roller"
+"application/x-zstd-compressed-tar" = "file-roller"
+
+# ── E-books ──────────────────────────────────────────────────────────────────
+# foliate: modern e-book reader (install: sudo apt install foliate)
+"application/epub+zip"          = "foliate"
+"application/x-mobipocket-ebook" = "foliate"
+
+# ── Extension mappings ───────────────────────────────────────────────────────
+# These supplement MIME detection for files whose type is hard to detect.
+[extensions]
+# Text / source code
+".txt"   = "$EDITOR"
+".md"    = "$EDITOR"
+".rst"   = "$EDITOR"
+".py"    = "$EDITOR"
+".pyi"   = "$EDITOR"
+".js"    = "$EDITOR"
+".mjs"   = "$EDITOR"
+".cjs"   = "$EDITOR"
+".ts"    = "$EDITOR"
+".tsx"   = "$EDITOR"
+".jsx"   = "$EDITOR"
+".html"  = "$EDITOR"
+".htm"   = "$EDITOR"
+".css"   = "$EDITOR"
+".scss"  = "$EDITOR"
+".sass"  = "$EDITOR"
+".less"  = "$EDITOR"
+".json"  = "$EDITOR"
+".jsonc" = "$EDITOR"
+".xml"   = "$EDITOR"
+".yaml"  = "$EDITOR"
+".yml"   = "$EDITOR"
+".toml"  = "$EDITOR"
+".ini"   = "$EDITOR"
+".cfg"   = "$EDITOR"
+".conf"  = "$EDITOR"
+".sh"    = "$EDITOR"
+".bash"  = "$EDITOR"
+".zsh"   = "$EDITOR"
+".fish"  = "$EDITOR"
+".c"     = "$EDITOR"
+".h"     = "$EDITOR"
+".cpp"   = "$EDITOR"
+".cc"    = "$EDITOR"
+".cxx"   = "$EDITOR"
+".hpp"   = "$EDITOR"
+".hxx"   = "$EDITOR"
+".rs"    = "$EDITOR"
+".go"    = "$EDITOR"
+".java"  = "$EDITOR"
+".kt"    = "$EDITOR"
+".rb"    = "$EDITOR"
+".php"   = "$EDITOR"
+".sql"   = "$EDITOR"
+".tf"    = "$EDITOR"
+".lua"   = "$EDITOR"
+".r"     = "$EDITOR"
+".R"     = "$EDITOR"
+".swift" = "$EDITOR"
+".dart"  = "$EDITOR"
+
+# Documents
+".pdf"   = "evince"
+".ps"    = "evince"
+".eps"   = "evince"
+".doc"   = "libreoffice --writer"
+".docx"  = "libreoffice --writer"
+".odt"   = "libreoffice --writer"
+".rtf"   = "libreoffice --writer"
+".xls"   = "libreoffice --calc"
+".xlsx"  = "libreoffice --calc"
+".ods"   = "libreoffice --calc"
+".csv"   = "libreoffice --calc"
+".ppt"   = "libreoffice --impress"
+".pptx"  = "libreoffice --impress"
+".odp"   = "libreoffice --impress"
+
+# Images
+".png"   = "eog"
+".jpg"   = "eog"
+".jpeg"  = "eog"
+".gif"   = "eog"
+".webp"  = "eog"
+".bmp"   = "eog"
+".tiff"  = "eog"
+".tif"   = "eog"
+".ico"   = "eog"
+".heic"  = "eog"
+".heif"  = "eog"
+".svg"   = "inkscape"
+
+# Audio
+".mp3"   = "rhythmbox"
+".ogg"   = "rhythmbox"
+".flac"  = "rhythmbox"
+".wav"   = "rhythmbox"
+".m4a"   = "rhythmbox"
+".aac"   = "rhythmbox"
+".wma"   = "rhythmbox"
+".opus"  = "rhythmbox"
+
+# Video
+".mp4"   = "totem"
+".mkv"   = "totem"
+".avi"   = "totem"
+".mov"   = "totem"
+".webm"  = "totem"
+".wmv"   = "totem"
+".mpg"   = "totem"
+".mpeg"  = "totem"
+".3gp"   = "totem"
+".flv"   = "totem"
+
+# Archives
+".zip"   = "file-roller"
+".tar"   = "file-roller"
+".gz"    = "file-roller"
+".bz2"   = "file-roller"
+".xz"    = "file-roller"
+".7z"    = "file-roller"
+".rar"   = "file-roller"
+".zst"   = "file-roller"
+
+# E-books
+".epub"  = "foliate"
+".mobi"  = "foliate"
 """
 
 # ---------------------------------------------------------------------------
@@ -451,22 +698,86 @@ def _resolve_sentinel(value: str) -> str:
 # ---------------------------------------------------------------------------
 
 def write_default_config(path: Path) -> None:
-    """Write a well-commented starter config to *path*."""
+    """Write a starter *user* config to *path* (~/.config/zedit/config.toml).
+
+    Only creates a minimal template for the user to customise.
+    To write the system-wide config use write_system_config().
+    """
     header = """\
-# edit configuration file
+# zedit — user configuration file
 #
-# Locations searched (later files override earlier ones):
-#   ~/.config/zedit/config.toml   — user-global config  (this file)
+# This file overrides system defaults on a per-user basis.
+# Add or change mappings here; anything not mentioned falls back to
+# /opt/etc/zedit/config.toml (system-wide) then built-in defaults.
+#
+# Locations (later overrides earlier):
+#   /opt/etc/zedit/config.toml    — system-wide (managed by admin)
+#   ~/.config/zedit/config.toml   — this file
 #   ./.zedit.toml                 — project-local override
 #
-# Editor values may be:
-#   - A plain command name:       "vim", "nano", "code --wait"
-#   - The special token $EDITOR:  resolved via $VISUAL / $EDITOR env vars
+# Editor values:
+#   Plain command:  "vim", "nano", "code --wait"
+#   Sentinel:       "$EDITOR"  →  $VISUAL → $EDITOR → vi
+#
+# Example overrides:
+#   [mime_types]
+#   "application/pdf" = "zathura"   # prefer zathura over evince
+#
+#   [extensions]
+#   ".md" = "typora"                # open Markdown in Typora
 #
 """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(header + _DEFAULT_CONFIG_TOML)
-    print(f"Config written to {path}")
+    print(f"✓ User config written to {path}")
+
+
+def write_system_config(path: Path, *, force: bool = False) -> int:
+    """Write the system-wide config with Ubuntu 24.04 LTS default apps.
+
+    Checks write permission on the target directory and advises the user to
+    re-run with sudo if needed.  Returns 0 on success, non-zero on error.
+    """
+    if path.exists() and not force:
+        print(
+            f"System config already exists: {path}\n"
+            f"Use --force (-f) to overwrite it.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Check write permission
+    target_dir = path.parent
+    can_write = os.access(target_dir, os.W_OK) if target_dir.exists() else False
+    if not can_write:
+        # Try parent directories up to root to find writable ancestor
+        ancestor = target_dir
+        while not ancestor.exists() and ancestor != ancestor.parent:
+            ancestor = ancestor.parent
+        can_write = os.access(ancestor, os.W_OK) if ancestor.exists() else False
+
+    if not can_write:
+        print(
+            f"✗ Cannot write to {target_dir} — permission denied.\n"
+            f"  Re-run with sudo:\n"
+            f"    sudo zedit --init-config --force",
+            file=sys.stderr,
+        )
+        return 2
+
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        path.write_text(_SYSTEM_CONFIG_TOML)
+        print(f"✓ System config written to {path}")
+        return 0
+    except PermissionError:
+        print(
+            f"✗ Permission denied writing to {path}.\n"
+            f"  Re-run with sudo:\n"
+            f"    sudo zedit --init-config --force",
+            file=sys.stderr,
+        )
+        return 2
 
 
 # ---------------------------------------------------------------------------
@@ -923,7 +1234,21 @@ Use `{APP_NAME} --init-config` to write a starter config to the global location.
     p.add_argument(
         "--init-config",
         action="store_true",
-        help=f"Write a starter config to ~/.config/{APP_NAME}/config.toml and exit.",
+        help=(
+            f"Write a starter user config to ~/.config/{APP_NAME}/config.toml and exit.  "
+            f"Does NOT touch the system config.  "
+            f"Add --force / -f to also (re)write the system config at "
+            f"/opt/etc/{APP_NAME}/config.toml (requires write permission; use sudo if needed)."
+        ),
+    )
+    p.add_argument(
+        "-f", "--force",
+        action="store_true",
+        help=(
+            "When used with --init-config: write (or overwrite) the system-wide "
+            f"config at /opt/etc/{APP_NAME}/config.toml with Ubuntu 24.04 LTS defaults.  "
+            "Requires write permission on /opt/etc; run with sudo if needed."
+        ),
     )
     p.add_argument(
         "--install-alias",
@@ -959,7 +1284,13 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- --init-config ---
     if args.init_config:
+        # Always write user config
         write_default_config(_user_config_path())
+        # With -f/--force also write system config
+        if args.force:
+            rc = write_system_config(_system_config_path(), force=True)
+            if rc != 0:
+                return rc
         return 0
 
     # --- --install-alias ---
