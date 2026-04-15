@@ -13,39 +13,37 @@ case "$1" in
         # Attempt to create a 'ze' alias inside the package bin dir.
         # /opt/zedit/bin is not managed by any system package, so no
         # Breaks/Replaces stanza is needed.
-        _edit_bin=/opt/zedit/bin/zedit
         _created=0
-        for _dir in /opt/zedit/bin; do
-            if [ ! -d "$_dir" ]; then
-                continue
+        _dir=/opt/zedit/bin
+        _link="$_dir/ze"
+        _target_name="zedit"
+        
+        if [ ! -d "$_dir" ]; then
+            echo "zedit: note: $_dir does not exist yet (may be upgraded); skipping ze alias creation" >&2
+        elif [ -e "$_link" ] || [ -L "$_link" ]; then
+            # Check if symlink already exists and points to zedit
+            _existing_target=$(readlink "$_link" 2>/dev/null || true)
+            if [ "$_existing_target" = "$_target_name" ]; then
+                echo "zedit: ze alias already exists and is correct" >&2
+                _created=1
+            else
+                echo "zedit: note: '$_link' already exists (→ ${_existing_target:-regular file}); not overwriting" >&2
             fi
-            _link="$_dir/ze"
-            if [ -e "$_link" ] || [ -L "$_link" ]; then
-                _target=$(readlink "$_link" 2>/dev/null || true)
-                if [ "$_target" = "$_edit_bin" ] || [ "$_target" = "zedit" ]; then
-                    _created=1
-                    break
-                else
-                    echo "zedit: note: '$_link' already exists (→ ${_target:-regular file}); skipping alias in $_dir" >&2
-                    continue
-                fi
+        else
+            # Shadowing check: warn if the system 'ze' is higher in PATH
+            _sys_ze=$(command -v ze 2>/dev/null || true)
+            if [ -n "$_sys_ze" ] && [ "$_sys_ze" != "$_link" ]; then
+                echo "zedit: note: system 'ze' exists at '$_sys_ze'; new alias may be shadowed if that directory is earlier in PATH" >&2
             fi
 
-            # Shadowing check: warn if the system 'ed' is higher in PATH
-            _sys_ed=$(command -v ed 2>/dev/null || true)
-            if [ -n "$_sys_ed" ] && [ "$_sys_ed" != "$_link" ]; then
-                echo "zedit: note: '$_sys_ed' exists; '$_link' may be shadowed if $_sys_ed's directory is earlier in PATH" >&2
-            fi
-
-            ln -sf zedit "$_link"
-            echo "zedit: created alias: $_link → zedit"
+            ln -sf "$_target_name" "$_link"
+            echo "zedit: created alias: $_link → $_target_name"
             _created=1
-            break
-        done
+        fi
 
         if [ "$_created" = "0" ]; then
             echo "zedit: could not create 'ze' alias automatically." >&2
-            echo "zedit: run 'zedit --install-alias' as the target user to create it." >&2
+            echo "zedit: run 'zedit --install-alias' as the target user to create it manually." >&2
         fi
         ;;
 esac
