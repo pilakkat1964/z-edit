@@ -9,65 +9,223 @@ permissions:
   contents: write   # needed to create GitHub releases
 
 jobs:
-  build-and-release:
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      
+      - name: Validate version format
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "Invalid version format: $VERSION"
+            exit 1
+          fi
+          echo "Version validated: $VERSION"
 
+  build-source-package:
+    needs: prepare
+    runs-on: ubuntu-latest
+    outputs:
+      source-archive: ${{ steps.build.outputs.source-archive }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history for git archive
+          fetch-depth: 0
+
+      - name: Build source archive
+        id: build
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          git archive --format=tar.gz \
+            --prefix="zedit-${VERSION}-source/" \
+            -o "zedit-${VERSION}-source.tar.gz" \
+            HEAD
+          
+          if [ ! -f "zedit-${VERSION}-source.tar.gz" ]; then
+            echo "Source archive creation failed"
+            exit 1
+          fi
+          
+          echo "source-archive=zedit-${VERSION}-source.tar.gz" >> "$GITHUB_OUTPUT"
+          ls -lh zedit-*.tar.gz
+
+      - name: Upload source package as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-package
+          path: zedit-*.tar.gz
+          retention-days: 7
+
+  build-debian-amd64:
+    needs: prepare
+    runs-on: ubuntu-latest
+    outputs:
+      deb-package: ${{ steps.build.outputs.deb-package }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install build tools
+      - name: Install build dependencies
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y cmake python3-magic dpkg-dev
-
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          sudo apt-get install -y cmake python3-magic dpkg-dev debhelper dh-python
 
       - name: Configure CMake
         run: cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/zedit
 
-      - name: Build install archive (TGZ)
-        run: |
-          cmake --build build --target tarball
-          ls build/zedit-*.tar.gz
-
-      - name: Build Debian package (DEB)
+      - name: Build Debian package (amd64)
+        id: build
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           cmake --build build --target deb
-          ls build/zedit-*.deb
+          
+          DEB_FILE=$(ls build/zedit-*.deb | head -1)
+          if [ -z "$DEB_FILE" ]; then
+            echo "Debian package creation failed"
+            exit 1
+          fi
+          
+          DEB_RENAMED="${DEB_FILE%.*}-amd64.deb"
+          mv "$DEB_FILE" "$DEB_RENAMED"
+          
+          echo "deb-package=$(basename $DEB_RENAMED)" >> "$GITHUB_OUTPUT"
+          ls -lh "$DEB_RENAMED"
+          
+          dpkg -I "$DEB_RENAMED"
 
-      - name: Build source archive
-        run: |
-          git archive --format=tar.gz \
-            --prefix="zedit-${{ steps.version.outputs.VERSION }}-source/" \
-            -o "zedit-${{ steps.version.outputs.VERSION }}-source.tar.gz" \
-            HEAD
+      - name: Upload Debian amd64 package as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-amd64
+          path: build/zedit-*-amd64.deb
+          retention-days: 7
 
-      - name: Collect assets
-        id: assets
+  build-debian-arm64:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU for arm64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Debian package (arm64) using Docker
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          INSTALL_TGZ=$(ls build/zedit-*.tar.gz)
-          DEB=$(ls build/zedit-*.deb)
-          SOURCE_TGZ="zedit-${{ steps.version.outputs.VERSION }}-source.tar.gz"
-          echo "INSTALL_TGZ=${INSTALL_TGZ}" >> "$GITHUB_OUTPUT"
-          echo "DEB=${DEB}"                 >> "$GITHUB_OUTPUT"
-          echo "SOURCE_TGZ=${SOURCE_TGZ}"   >> "$GITHUB_OUTPUT"
+          cat > /tmp/Dockerfile.arm64 << 'DOCKEREOF'
+          FROM arm64v8/ubuntu:24.04
+          
+          RUN apt-get update && apt-get install -y \
+            build-essential cmake python3 python3-dev python3-magic \
+            dpkg-dev debhelper dh-python git
+          
+          WORKDIR /build
+          COPY . .
+          
+          RUN cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/zedit && \
+              cmake --build build --target deb && \
+              ls -la build/
+          DOCKEREOF
+          
+          docker buildx build --platform linux/arm64 \
+            -t zedit-arm64-builder:latest \
+            -f /tmp/Dockerfile.arm64 \
+            --output type=docker \
+            .
+
+      - name: Extract arm64 deb from image
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          docker run --rm \
+            -v $(pwd)/build:/output \
+            zedit-arm64-builder:latest \
+            bash -c "cp /build/build/zedit-*.deb /output/ 2>/dev/null || true"
+          
+          if ls build/zedit-*.deb 1> /dev/null 2>&1; then
+            DEB_FILE=$(ls build/zedit-*.deb | head -1)
+            DEB_RENAMED="${DEB_FILE%.*}-arm64.deb"
+            mv "$DEB_FILE" "$DEB_RENAMED"
+            ls -lh "$DEB_RENAMED"
+          else
+            echo "Warning: ARM64 deb package could not be built"
+          fi
+
+      - name: Upload Debian arm64 package as artifact
+        if: hashFiles('build/zedit-*-arm64.deb') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-arm64
+          path: build/zedit-*-arm64.deb
+          retention-days: 7
+
+  create-release:
+    needs: [prepare, build-source-package, build-debian-amd64]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download source package
+        uses: actions/download-artifact@v4
+        with:
+          name: source-package
+          path: ./release-assets/
+
+      - name: Download Debian amd64 package
+        uses: actions/download-artifact@v4
+        with:
+          name: debian-amd64
+          path: ./release-assets/
+
+      - name: Download Debian arm64 package (if available)
+        uses: actions/download-artifact@v4
+        with:
+          name: debian-arm64
+          path: ./release-assets/
+        continue-on-error: true
+
+      - name: Verify release assets
+        run: |
+          echo "Release assets:"
+          ls -lh release-assets/
+          echo ""
+          echo "Asset count: $(ls release-assets/ | wc -l)"
+
+      - name: Generate checksums
+        run: |
+          cd release-assets/
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+          cd ..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "zedit ${{ github.ref_name }}"
           generate_release_notes: true
-          files: |
-            ${{ steps.assets.outputs.INSTALL_TGZ }}
-            ${{ steps.assets.outputs.DEB }}
-            ${{ steps.assets.outputs.SOURCE_TGZ }}
+          draft: false
+          prerelease: false
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
