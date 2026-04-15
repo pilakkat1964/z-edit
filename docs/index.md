@@ -246,4 +246,16 @@ Z-edit was designed and built to explore AI-assisted development using **Claude 
 
 ---
 
+## 🔗 Related Z-Tools Projects
+
+**Explore other tools in the z-tools ecosystem:**
+
+- **[Z-Open](http://pilakkat.mywire.org/z-open/)** — Opens files/URLs with the right application
+- **[Z-Kitty Launcher](http://pilakkat.mywire.org/z-kitty-launcher/)** — Terminal session manager for Kitty
+- **[RClone Mount Applete](https://pilakkat.mywire.org/z-rclone-mount-applete/)** — System tray manager for cloud storage
+
+**[→ View Master Index](http://pilakkat.mywire.org/master-index/)** — Complete guide to all z-tools projects
+
+---
+
 **Ready to simplify your file editing workflow?** Start with `./setup-env.sh` or jump straight to the [Installation Guide](user-guide.md#installation)!
