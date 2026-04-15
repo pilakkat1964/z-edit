@@ -1,3 +1,9 @@
+---
+layout: default
+title: User Guide
+description: Installation, CLI reference, configuration, and troubleshooting
+---
+
 # zedit — User Guide
 
 `zedit` is a smart file-editor launcher. Instead of typing the editor name

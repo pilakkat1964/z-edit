@@ -1,3 +1,9 @@
+---
+layout: default
+title: Design & Architecture
+description: Internal architecture, module structure, and API documentation
+---
+
 # zedit — Design and Code Documentation
 
 This document describes the internal architecture of `zedit`, the data

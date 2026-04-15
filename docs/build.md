@@ -1,3 +1,9 @@
+---
+layout: default
+title: Build & Packaging Guide
+description: Build paths, packaging instructions, and release process
+---
+
 # zedit — Build and Packaging Guide
 
 This document covers every way to build, install, and package `zedit`,

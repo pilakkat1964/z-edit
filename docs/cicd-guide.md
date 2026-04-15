@@ -1,3 +1,9 @@
+---
+layout: default
+title: CI/CD & Release Guide
+description: GitHub Actions setup, release workflow, and deployment
+---
+
 # zedit — CI/CD & Release Guide
 
 > **Audience:** This guide is written for contributors and maintainers who are
