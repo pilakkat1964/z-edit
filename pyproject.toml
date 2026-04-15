@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "zedit"
@@ -10,16 +10,46 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 keywords = ["editor", "mime", "launcher", "cli"]
+authors = [{name = "zedit contributors"}]
 
 # python-magic is optional but strongly recommended for accurate MIME detection
 dependencies = []
 
 [project.optional-dependencies]
-magic = ["python-magic"]
+magic = ["python-magic>=0.4.27"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0"]
 
 [project.scripts]
 zedit = "zedit:main"
 ze    = "zedit:main"
 
-[tool.setuptools]
-py-modules = ["zedit"]
+[tool.hatch.build.targets.wheel]
+packages = ["zedit.py"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[tool.uv.sources]
+# Optional: Add source configurations here if needed
+
+# Tool configurations
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.coverage.run]
+source = ["zedit.py"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

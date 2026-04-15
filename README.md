@@ -19,8 +19,29 @@ zedit README.md        → typora       (.md extension mapping)
 
 ## Quick start
 
+### Using `uv` (recommended)
+
 ```bash
-# Install
+# Check and set up build environment
+./setup-env.sh              # Check dependencies only
+./setup-env.sh --install    # Check and interactively install
+./setup-env.sh --force      # Install everything without prompting
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Use
+zedit myfile.py                  # open with the configured editor
+ze myfile.py                    # same — 'ze' is a symlink/alias for 'zedit'
+zedit --dry-run *.md             # preview without opening
+zedit --list                     # show all configured mappings
+zedit --init-config              # scaffold ~/.config/zedit/config.toml
+```
+
+### Using `pip` (traditional)
+
+```bash
+# Install from source
 pip install .                   # from source
 pip install ".[magic]"          # with accurate content-based MIME detection
 
@@ -30,6 +51,29 @@ ze myfile.py                    # same — 'ze' is a symlink/alias for 'zedit'
 zedit --dry-run *.md             # preview without opening
 zedit --list                     # show all configured mappings
 zedit --init-config              # scaffold ~/.config/zedit/config.toml
+```
+
+---
+
+## Build Environment Setup
+
+This project includes an automated build environment setup script (`setup-env.sh`) that checks and reports on all dependencies.
+
+### What the setup script does
+
+- ✓ Checks Python version (requires >= 3.11)
+- ✓ Verifies `uv` tool installation
+- ✓ Detects system-level dependencies (libmagic)
+- ✓ Creates virtual environment with all dependencies
+- ✓ Installs optional extras (magic support for accurate MIME detection, dev tools)
+
+### Setup script usage
+
+```bash
+./setup-env.sh                # Dry-run: check dependencies only
+./setup-env.sh --install      # Check and prompt for installation
+./setup-env.sh --force        # Check and install everything (no prompts)
+./setup-env.sh --help         # Show help message
 ```
 
 ---
