@@ -63,7 +63,7 @@ jobs:
           path: zedit-*.tar.gz
           retention-days: 7
 
-  build-debian-amd64:
+  build-debian-multiarch:
     needs: prepare
     runs-on: ubuntu-latest
     outputs:
@@ -85,7 +85,7 @@ jobs:
       - name: Configure CMake
         run: cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/zedit -DZEDIT_BUILD_WHEEL=OFF
 
-      - name: Build Debian package (amd64)
+      - name: Build Debian package (multiarch)
         id: build
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -98,7 +98,16 @@ jobs:
             exit 1
           fi
           
-          DEB_RENAMED="${DEB_FILE%.*}-amd64.deb"
+          # Verify Architecture: any in package
+          ARCH=$(dpkg -I "$DEB_FILE" | grep "Architecture:" | awk '{print $2}')
+          echo "Package architecture: $ARCH"
+          if [ "$ARCH" != "any" ]; then
+            echo "ERROR: Package architecture should be 'any', but got '$ARCH'"
+            exit 1
+          fi
+          
+          # Rename to indicate multiarch support
+          DEB_RENAMED="${DEB_FILE%.*}-multiarch.deb"
           mv "$DEB_FILE" "$DEB_RENAMED"
           
           echo "deb-package=$(basename $DEB_RENAMED)" >> "$GITHUB_OUTPUT"
@@ -106,15 +115,15 @@ jobs:
           
           dpkg -I "$DEB_RENAMED"
 
-      - name: Upload Debian amd64 package as artifact
+      - name: Upload Debian multiarch package as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: debian-amd64
-          path: build/zedit-*-amd64.deb
+          name: debian-multiarch
+          path: build/zedit-*-multiarch.deb
           retention-days: 7
 
   create-release:
-    needs: [prepare, build-source-package, build-debian-amd64]
+    needs: [prepare, build-source-package, build-debian-multiarch]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -126,10 +135,10 @@ jobs:
           name: source-package
           path: ./release-assets/
 
-      - name: Download Debian amd64 package
+      - name: Download Debian multiarch package
         uses: actions/download-artifact@v4
         with:
-          name: debian-amd64
+          name: debian-multiarch
           path: ./release-assets/
 
       - name: Verify release assets
