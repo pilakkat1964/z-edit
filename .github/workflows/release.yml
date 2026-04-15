@@ -83,7 +83,7 @@ jobs:
           sudo apt-get install -y cmake python3-magic dpkg-dev debhelper dh-python
 
       - name: Configure CMake
-        run: cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/zedit
+        run: cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/zedit -DZEDIT_BUILD_WHEEL=OFF
 
       - name: Build Debian package (amd64)
         id: build
@@ -142,9 +142,9 @@ jobs:
           WORKDIR /build
           COPY . .
           
-          RUN cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/zedit && \
-              cmake --build build --target deb && \
-              ls -la build/
+           RUN cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/zedit -DZEDIT_BUILD_WHEEL=OFF && \
+               cmake --build build --target deb && \
+               ls -la build/
           DOCKEREOF
           
           docker buildx build --platform linux/arm64 \
