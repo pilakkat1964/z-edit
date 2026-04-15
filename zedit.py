@@ -51,7 +51,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 APP_NAME    = "zedit"
-APP_VERSION = "0.6.5"
+APP_VERSION = "0.6.5"  # Kept in sync with pyproject.toml version
 
 # Candidate directories for the 'ed' symlink alias, tried in order.
 # These are all user-accessible or local-admin locations that do not

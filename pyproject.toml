@@ -4,13 +4,28 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zedit"
-version = "0.1.0"
+version = "0.6.5"
 description = "Smart file editor launcher — opens files in the right editor based on MIME type or extension"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 keywords = ["editor", "mime", "launcher", "cli"]
-authors = [{name = "zedit contributors"}]
+authors = [{name = "zedit contributors", email = "dev@example.com"}]
+
+[project.urls]
+Homepage = "https://github.com/pilakkat1964/z-edit"
+Repository = "https://github.com/pilakkat1964/z-edit"
+Documentation = "https://pilakkat.mywire.org/z-edit/"
+"Bug Tracker" = "https://github.com/pilakkat1964/z-edit/issues"
+
+[project.classifiers]
+"Programming Language :: Python :: 3"
+"Programming Language :: Python :: 3.11"
+"Programming Language :: Python :: 3.12"
+"Development Status :: 4 - Beta"
+"License :: OSI Approved :: MIT License"
+"Topic :: System :: Shells"
+"Topic :: Utilities"
 
 # python-magic is optional but strongly recommended for accurate MIME detection
 dependencies = []
