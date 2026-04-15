@@ -88,6 +88,16 @@ This project includes an automated build environment setup script (`setup-env.sh
 
 ---
 
+## Contributing
+
+Want to contribute to z-edit? We'd love your help! Check out [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- How to report bugs and suggest features
+- Development environment setup
+- Code style guidelines and testing requirements
+- Pull request process and code review expectations
+
+---
+
 ## Configuration at a glance
 
 Config files are TOML, loaded and deep-merged in this order:
