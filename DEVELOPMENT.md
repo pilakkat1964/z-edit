@@ -2,527 +2,823 @@
 
 ## Overview
 
-The z-edit project now includes a comprehensive development workflow wrapper (`./scripts/dev.py`) that accelerates the test-driven development cycle by automating:
+The z-edit project is a smart file editor launcher that automatically opens files in the appropriate editor based on MIME type (auto-detected or explicitly specified) or file extension. This guide covers the development workflow for contributing to z-edit.
 
-1. **Environment Setup** - Virtual environment + dependency installation
-2. **Building** - Local CMake builds for testing
-3. **Testing** - Automated test suite execution with coverage
-4. **Packaging** - DEB packages and source archives
-5. **Version Control** - Interactive git review, staging, and commits
-6. **Release** - Automated GitHub release creation and CI/CD integration
+### Architecture
+
+Z-Edit maintains a single-file deployment model while providing comprehensive functionality:
+
+- **Single-file module**: `zedit.py` (1,725 lines) contains the entire application
+- **Zero hard dependencies**: Works with Python 3.11+ stdlib alone
+- **Optional MIME detection**: `python-magic` for accurate content-based type detection
+- **Configuration layers**: System-wide → user-global → project-local → ad-hoc overrides
+
+This design ensures simplicity for deployment while maintaining power and flexibility.
 
 ## Quick Start
 
-### First Time Setup
+### ⚡ Quickest Path (Automated with dev.py)
+
+Z-Edit includes `scripts/dev.py`, a workflow wrapper that automates virtual environment setup and common tasks:
 
 ```bash
 # Clone the repository and enter directory
 git clone git@github.com:pilakkat1964/z-edit.git
 cd z-edit
 
-# Set up development environment
+# One-time setup (creates venv with uv or standard venv, installs dependencies)
 ./scripts/dev.py setup
 
-# Verify setup works
-./scripts/dev.py build
+# Test your changes
 ./scripts/dev.py test
+
+# When ready to release
+./scripts/release.py 0.6.6
+```
+
+See `scripts/README.md` for complete documentation on all available commands.
+
+### Manual Virtual Environment Setup
+
+If you prefer to manage the virtual environment yourself:
+
+#### **Option 1: Using uv (Fast & Recommended)**
+
+**Benefits:** 10-100x faster than pip, zero external dependencies, automatic venv management
+
+First, [install uv](https://docs.astral.sh/uv/getting-started/):
+
+```bash
+# On macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Or with homebrew
+brew install uv
+
+# Or with pip
+pip install uv
+```
+
+Then set up z-edit:
+
+```bash
+# Clone the repository
+git clone git@github.com:pilakkat1964/z-edit.git
+cd z-edit
+
+# Use the provided activation script (automatic venv setup with uv)
+source scripts/activate.sh
+
+# Or manually with uv:
+uv venv --python 3.11        # Create venv
+source .venv/bin/activate    # Activate
+uv pip install -e ".[dev]"   # Install dependencies
+
+# Verify setup
+python --version
+python zedit.py --help
+```
+
+**Using uv for package management:**
+
+```bash
+# Install new packages
+uv pip install package-name
+
+# Install from wheel
+uv pip install dist/zedit-0.6.5-py3-none-any.whl
+
+# Install with extras
+uv pip install ".[magic]"
+
+# Run Python without explicit activation
+uv run python zedit.py --help
+```
+
+#### **Option 2: Using standard venv**
+
+```bash
+# Clone the repository
+git clone git@github.com:pilakkat1964/z-edit.git
+cd z-edit
+
+# Create virtual environment manually
+python3.11 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies with pip
+pip install --upgrade pip setuptools wheel
+pip install -e ".[dev]"
+
+# Verify setup
+python zedit.py --help
+python zedit.py --list
+```
+
+### Running Commands in Virtual Environment
+
+Once your venv is set up, use one of these approaches:
+
+**Approach 1: Activate then run with uv (recommended for interactive development)**
+```bash
+source scripts/activate.sh
+# Then use uv pip for fast package management
+uv pip install package-name
+python zedit.py --help
+pytest
+cmake --build build --target deb
+```
+
+**Approach 2: Use uv run (no activation needed)**
+```bash
+# Run commands directly in venv without activation
+uv run python zedit.py --help
+uv run pytest
+uv run python -c "from zedit import load_config; print(load_config())"
+```
+
+**Approach 3: Use the with-venv wrapper (for one-off commands)**
+```bash
+scripts/with-venv python zedit.py --help
+scripts/with-venv pytest
+scripts/with-venv uv pip install somepackage
+```
+
+**Approach 4: Use dev.py wrapper (for release workflows)**
+```bash
+./scripts/dev.py test
+./scripts/dev.py build
+./scripts/release.py 0.6.6
+```
+
+## Virtual Environment Management
+
+### ⚠️ Important: Always Use Virtual Environment
+
+The project **must** use a virtual environment for:
+- ✅ **Portability** - Works across different systems without system Python conflicts
+- ✅ **Consistency** - Same dependencies in CI/CD and local development
+- ✅ **Isolation** - Project dependencies don't affect system Python
+- ✅ **Reproducibility** - Exact same environment for all developers
+
+### Automatic Setup
+
+The `scripts/activate.sh` script automatically:
+1. Checks if `.venv` exists
+2. Creates it using `uv` (if available) or standard `venv`
+3. Installs/upgrades pip, setuptools, wheel
+4. Installs project dependencies from `pyproject.toml[dev]`
+5. Activates the virtual environment
+
+```bash
+# Automatic setup
+source scripts/activate.sh
+```
+
+### Manual Setup
+
+If you need to set it up manually:
+
+```bash
+# Using uv (fast, recommended)
+uv venv .venv --python 3.11
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+
+# Or using standard venv
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+### Verification
+
+After setup, verify everything works:
+
+```bash
+# Check Python version
+python --version  # Should be 3.11+
+
+# Check venv location
+which python      # Should show path to .venv/bin/python
+
+# Run basic tests
+python zedit.py --help
+python zedit.py --version
+python -m pytest --version
 ```
 
 ### Daily Development
 
+Using the wrapper:
+
 ```bash
-# Make your changes to zedit.py, CMakeLists.txt, etc.
+# Make changes to zedit.py or config files
 
-# Test locally
-./scripts/dev.py build && ./scripts/dev.py test
+# Test your changes
+./scripts/dev.py test
 
-# Create packages and review them
+# Create packages and review
 ./scripts/dev.py package
+```
 
-# Or all in one go
-./scripts/dev.py build && ./scripts/dev.py test && ./scripts/dev.py package
+Or manually (if not using the wrapper):
+
+```bash
+# Make changes to zedit.py or config files
+
+# Test manually
+python zedit.py --help
+python zedit.py --list
+python zedit.py --dump /etc/hosts
+
+# For configuration changes, test the config system
+python -c "from zedit import resolve_editor; print(resolve_editor('/etc/hosts'))"
 ```
 
 ### Create a Release
 
-```bash
-# When ready to release version 0.2.0
-./scripts/dev.py full --version 0.2.0
+Using the wrapper (recommended):
 
-# This runs the complete workflow:
-# 1. Builds locally
-# 2. Runs tests
-# 3. Creates packages (DEB + source)
-# 4. Reviews git changes interactively
-# 5. Creates a commit
-# 6. Creates git tag v0.2.0
-# 7. Waits for GitHub Actions to build release
+```bash
+# Run complete workflow: test → build → package → release
+./scripts/dev.py full --version 0.6.6
+
+# Or just create a release (if you've already tested)
+./scripts/release.py 0.6.6
 
 # View the released version at:
-# https://github.com/pilakkat1964/z-edit/releases/tag/v0.2.0
+# https://github.com/pilakkat1964/z-edit/releases/tag/v0.6.6
 ```
 
-## Command Reference
-
-### `dev.py setup`
-
-**Purpose**: Initialize development environment
+Manual process:
 
 ```bash
-./scripts/dev.py setup
-```
-
-Creates:
-- Virtual environment in `.venv/`
-- Installs all dependencies via `uv sync --all-extras`
-- Ready for development and testing
-
-**When to use**: First time only, or when dependencies change
-
----
-
-### `dev.py build`
-
-**Purpose**: Compile project locally for testing
-
-```bash
-./scripts/dev.py build
-```
-
-What it does:
-- Removes previous build directory (if exists)
-- Runs CMake configuration with `-DZEDIT_BUILD_WHEEL=OFF` (faster packaging builds)
-- Compiles and links all targets
-- Creates build artifacts in `./build/` directory
-
-**When to use**: After making code changes, before testing/packaging
-
----
-
-### `dev.py test`
-
-**Purpose**: Run the test suite with coverage reporting
-
-```bash
-./scripts/dev.py test
-```
-
-What it does:
-- Checks for `tests/` directory (creates with minimal tests if missing)
-- Runs pytest with verbose output
-- Generates coverage report showing untested code
-- Auto-creates `test_smoke.py` if no tests exist
-
-**When to use**: After building, before committing changes
-
-**Sample output**:
-```
-tests/test_smoke.py::test_zedit_module_imports PASSED    [ 50%]
-tests/test_smoke.py::test_version_exists PASSED          [100%]
-
-Name       Stmts   Miss  Cover   Missing
-----------------------------------------
-zedit.py     615    560     9%   37-41, 46-47, ...
-```
-
----
-
-### `dev.py package`
-
-**Purpose**: Create distributable packages
-
-```bash
-./scripts/dev.py package [--version VERSION] [--skip-deb] [--skip-source]
-```
-
-Creates:
-- **DEB package** - `zedit-0.6.5-Linux-amd64.deb` (in `build/`)
-- **Source archive** - `zedit-0.1.0-source.tar.gz` (root directory)
-
-Options:
-- `--version VERSION`: Override version (auto-detected from pyproject.toml if not given)
-- `--skip-deb`: Skip DEB generation (faster for testing)
-- `--skip-source`: Skip source archive (keep DEB only)
-
-**When to use**: Before releases, to verify packages build correctly
-
-**Example - Quick packaging (DEB only)**:
-```bash
-./scripts/dev.py package --skip-source
-```
-
----
-
-### `dev.py release`
-
-**Purpose**: Create and publish a release
-
-```bash
-./scripts/dev.py release [--version VERSION] [--stage] [--no-wait] [--commit-msg MSG]
-```
-
-Complete release workflow:
-1. Reviews git status (shows modified files)
-2. **Interactive**: Prompts to stage changes
-3. Creates commit with release notes
-4. Pushes to upstream
-5. Creates git tag `v0.2.0`
-6. Pushes tag to trigger GitHub Actions
-7. Waits for GitHub Actions to complete (polls every 10 seconds)
-8. Shows release URL when done
-
-Options:
-- `--version VERSION`: Release version (default: from pyproject.toml)
-- `--stage`: Creates staging tag (adds `-stage` suffix for QA testing)
-- `--no-wait`: Don't wait for GitHub Actions (fire and forget)
-- `--commit-msg MSG`: Custom commit message
-- `--timeout SECONDS`: How long to wait (default: 300s = 5 min)
-
-**Example - Release v0.2.0**:
-```bash
-./scripts/dev.py release --version 0.2.0
-```
-
-**Example - Staging release for QA**:
-```bash
-./scripts/dev.py release --version 0.2.0-rc1 --stage
-```
-Creates tag `v0.2.0-rc1-stage` for testing before final release.
-
-**What happens in GitHub**:
-1. Release workflow triggers automatically when tag is pushed
-2. Builds DEB package (amd64)
-3. Creates source archive
-4. Generates SHA256SUMS checksums
-5. Creates GitHub Release with all assets
-6. Release is published at: `github.com/pilakkat1964/z-edit/releases/tag/v0.2.0`
-
----
-
-### `dev.py full`
-
-**Purpose**: Complete workflow from build to release
-
-```bash
-./scripts/dev.py full [--version VERSION] [--stage] [--no-wait]
-```
-
-Runs all steps in sequence:
-1. **Build** - Compiles locally
-2. **Test** - Runs test suite
-3. **Package** - Creates DEB + source
-4. **Release** - Creates tag and publishes
-
-Options: Same as `release` command
-
-**Example - Release v0.2.0 completely**:
-```bash
-./scripts/dev.py full --version 0.2.0
-```
-
-**Example - Dry run to test workflow**:
-```bash
-./scripts/dev.py --dry-run --verbose full --version 0.2.0
-```
-Shows all commands without executing anything.
-
----
-
-## Global Options
-
-These apply to all commands:
-
-```bash
-./scripts/dev.py [OPTIONS] COMMAND [COMMAND_OPTIONS]
-```
-
-- `-v, --verbose`: Show all commands being executed (useful for debugging)
-- `--dry-run`: Show what would be done without making any changes (test mode)
-
-**Example - Verbose release**:
-```bash
-./scripts/dev.py --verbose release --version 0.2.0
-```
-Shows every command being executed.
-
-**Example - Test workflow without changes**:
-```bash
-./scripts/dev.py --dry-run full --version 0.2.0
-```
-
----
-
-## Typical Development Workflows
-
-### Workflow 1: Bug Fix
-
-```bash
-# Make changes to zedit.py
-# ... edit zedit.py ...
-
-# Test locally
-./scripts/dev.py build && ./scripts/dev.py test
-
-# If tests pass, commit and push
-git add zedit.py
-git commit -m "fix: handle edge case in MIME detection"
-git push origin master
-```
-
-### Workflow 2: Feature Development
-
-```bash
-# Branch for feature
-git checkout -b feature/better-editor-selection
-
-# Make changes
-# ... edit zedit.py, CMakeLists.txt, config/ ...
-
-# Test iteratively
-./scripts/dev.py build
-./scripts/dev.py test
-# ... fix issues ...
-./scripts/dev.py build && ./scripts/dev.py test
-
-# Create PR
-git add .
-git commit -m "feat: add fuzzy editor selection with fzf"
-git push origin feature/better-editor-selection
-# Create PR on GitHub
-
-# After merge to master
-git checkout master
-git pull origin master
-```
-
-### Workflow 3: Release New Version
-
-```bash
-# Ensure everything is committed
-git status  # Should be clean
-
 # Update version in pyproject.toml
-# ... edit pyproject.toml: version = "0.2.0" ...
+# Add release notes to docs/CHANGELOG.md (or README.md)
 
-# Complete release workflow
-./scripts/dev.py full --version 0.2.0
+# Create a tag and push (GitHub Actions handles the rest)
+git tag v0.6.6
+git push origin master
+git push origin v0.6.6
 
-# Verify release at GitHub
-open https://github.com/pilakkat1964/z-edit/releases/tag/v0.2.0
+# View the released version at:
+# https://github.com/pilakkat1964/z-edit/releases/tag/v0.6.6
 ```
 
-### Workflow 4: Release Candidate (QA Testing)
+## Development Workflow Patterns
+
+### Bug Fix Workflow
 
 ```bash
-# Create RC build for testing
-./scripts/dev.py release --version 0.2.0-rc1 --stage
+# 1. Create a branch for the bug
+git checkout -b fix/issue-description
 
-# This creates: v0.2.0-rc1-stage tag
-# Available at: github.com/pilakkat1964/z-edit/releases/tag/v0.2.0-rc1-stage
+# 2. Make changes to zedit.py
+# - Find the relevant section (use grep: grep -n "def function_name" zedit.py)
+# - Make minimal, focused changes
 
-# QA team tests the release
-# ... QA testing happens ...
+# 3. Test the fix manually
+python zedit.py [relevant command/option]
 
-# If issues found, fix them and create new RC
-./scripts/dev.py release --version 0.2.0-rc2 --stage
+# 4. Review changes
+git diff zedit.py
 
-# When ready for production
-./scripts/dev.py release --version 0.2.0
+# 5. Commit
+git commit -am "fix: brief description of bug and solution"
+
+# 6. Push and create PR
+git push origin fix/issue-description
+gh pr create --title "Fix: ..." --body "Fixes #123"
 ```
 
-### Workflow 5: Fast Development (Packaging Only)
+### Feature Addition Workflow
 
 ```bash
-# During development, just build packages quickly
-./scripts/dev.py package --skip-source  # Only DEB
+# 1. Create a branch for the feature
+git checkout -b feature/feature-name
 
-# Or
-./scripts/dev.py package --skip-deb     # Only source
+# 2. Plan the implementation:
+#    - Which section should be modified?
+#    - Does it need a new function?
+#    - Will it affect configuration?
+
+# 3. Implement incrementally
+#    - Add the core functionality
+#    - Add docstrings
+#    - Add error handling
+
+# 4. Test thoroughly
+python zedit.py [test the new feature]
+
+# 5. Update documentation if needed
+#    - docs/design.md (architecture changes)
+#    - README.md (usage examples)
+#    - docs/user-guide.md (user-facing features)
+
+# 6. Commit and push
+git commit -am "feat: description of new feature"
+git push origin feature/feature-name
+gh pr create --title "Feature: ..." --body "Adds support for ..."
 ```
 
----
+### Configuration Extension Workflow
 
-## Integration with CI/CD
-
-The script integrates with GitHub Actions:
-
-**When you push a release tag:**
 ```bash
-./scripts/dev.py release --version 0.2.0
-# Pushes tag v0.2.0 to GitHub
+# Adding new editor mappings or MIME handlers
+
+# 1. Create a branch
+git checkout -b config/add-mappings
+
+# 2. Update config files in config/ directory
+#    - config/default.toml: Add editor mappings
+
+# 3. Test the new configuration
+python -c "from zedit import load_config, resolve_editor; \
+    config = load_config(); \
+    editor = resolve_editor('/etc/some.file'); \
+    print('Resolved editor:', editor)"
+
+# 4. Verify z-edit uses the new mappings
+python zedit.py --list
+
+# 5. Document in README.md if it's a user-facing addition
+# 6. Commit and push
+git commit -am "config: add support for new editor mappings"
 ```
 
-**GitHub Actions automatically:**
-1. Detects the tag
-2. Runs the Release workflow
-3. Builds DEB package
-4. Creates source archive
-5. Generates SHA256SUMS checksums
-6. Creates GitHub Release with all assets
+## Architecture Understanding
 
-**What you get in the release:**
-- `zedit-0.2.0-source.tar.gz` - Source code archive
-- `zedit-0.6.5-Linux-amd64.deb` - Debian package
-- `SHA256SUMS` - Checksums for verification
+### Key Sections and Functions
 
-**Verify the release:**
+**zedit.py** contains ~1,725 lines organized in these sections:
+
+#### Configuration Subsystem (Lines ~100-400)
+- `_parse_toml_str()` - Parse TOML from string
+- `_parse_toml_file()` - Parse TOML from file
+- `_deep_merge()` - Recursively merge configuration dictionaries
+- `load_config()` - Load and merge config from all priority locations
+
+#### MIME-Type Detection Subsystem (Lines ~400-500)
+- `detect_mime()` - Detect file MIME types using available methods
+
+#### Editor Resolution Subsystem (Lines ~500-700)
+- `resolve_editor()` - Resolve the editor command for a file
+- `_resolve_sentinel()` - Resolve `$EDITOR` to actual command
+
+#### CLI Subsystem (Lines ~700-1725)
+- `build_parser()` - Create argument parser
+- `main()` - Main entry point and control flow
+- `write_default_config()` - Generate starter config template
+- `print_mappings()` - Display configured mappings
+
+Find functions using:
 ```bash
-# Download SHA256SUMS and packages
-cd /tmp
-gh release download v0.2.0 --repo pilakkat1964/z-edit
-
-# Verify checksums
-sha256sum -c SHA256SUMS
+grep -n "^def " zedit.py
 ```
 
----
+### Common Modifications
+
+**To add a new configuration location:**
+```python
+# In load_config(), add a new tuple to the config_paths list
+config_paths = [
+    _DEFAULT_CONFIG_TOML,
+    "/opt/etc/zedit/config.toml",
+    "~/.config/zedit/config.toml",
+    "./.zedit.toml",
+    # Add new location here
+]
+```
+
+**To add a new MIME detection method:**
+```python
+# In detect_mime(), add a new detection strategy
+def detect_mime(filepath):
+    # Try python-magic first
+    if _HAVE_LIBMAGIC:
+        # ...use libmagic
+    # Then try new method
+    # Finally fall back to extension
+```
+
+**To add a new CLI flag:**
+```python
+# In build_parser(), add the flag to the parser
+parser.add_argument(
+    '--new-flag',
+    action='store_true',
+    help='Description of the new flag'
+)
+# Then handle it in main()
+```
+
+## Testing
+
+### Local Testing Guide
+
+Before committing changes, ensure you're in the virtual environment and run the following tests:
+
+#### **Quick Verification** (for small changes)
+
+```bash
+# Activate venv first
+source scripts/activate.sh
+
+# Basic functionality check
+python zedit.py --help
+python zedit.py --version
+
+# Quick editor resolution check
+python zedit.py --dump /etc/hosts
+```
+
+#### **Full Testing Workflow** (before committing)
+
+**Step 1: Run Unit Tests (if available)**
+
+```bash
+# If tests exist in tests/ directory
+scripts/with-venv pytest -v
+
+# Or if you have activated the venv
+pytest -v
+
+# Run with coverage report
+pytest --cov=zedit --cov-report=html
+# View report at htmlcov/index.html
+```
+
+**Step 2: Manual CLI Testing**
+
+```bash
+# Test core commands
+python zedit.py --help
+python zedit.py --version
+python zedit.py --list
+
+# Test MIME detection
+python zedit.py --dry-run /etc/hosts
+python zedit.py --dump /etc/hosts
+python zedit.py --dump ~/.bashrc
+
+# Test configuration
+python zedit.py --init-config  # Create user config
+python zedit.py --list          # Show mappings
+```
+
+**Step 3: Test Configuration Changes**
+
+If you modified config files or configuration logic:
+
+```bash
+# Verify configuration loads without errors
+python -c "from zedit import load_config; \
+    config = load_config(); \
+    print('Loaded configuration successfully')"
+
+# Check specific configuration
+python -c "from zedit import load_config, resolve_editor; \
+    config = load_config(); \
+    editor = resolve_editor('/etc/hosts'); \
+    print('Resolved editor:', editor)"
+```
+
+**Step 4: Test Code Changes**
+
+For changes to specific functions:
+
+```bash
+# Test MIME detection
+python -c "from zedit import detect_mime; \
+    mime = detect_mime('/etc/hosts'); \
+    print('Detected MIME type:', mime)"
+
+# Test editor resolution
+python -c "from zedit import resolve_editor; \
+    editor = resolve_editor('/etc/hosts'); \
+    print('Resolved editor:', editor)"
+```
+
+#### **Full Regression Test Checklist**
+
+Before creating a release, run this complete checklist:
+
+```bash
+# Ensure you're in the venv
+source scripts/activate.sh
+
+# 1. Run automated tests (if available)
+pytest -v --tb=short
+
+# 2. Check linting (if available)
+ruff check zedit.py
+
+# 3. Test all CLI commands
+python zedit.py --help
+python zedit.py --version
+python zedit.py --list
+python zedit.py --dry-run /etc/hosts
+python zedit.py --dump /etc/hosts
+
+# 4. Build packages
+mkdir -p build
+cd build
+cmake ..
+make package
+ls -lah *.deb
+cd ..
+
+# 5. Test package installation (optional, if you want to test the actual installer)
+# sudo dpkg -i build/*.deb
+# zedit --help
+# sudo dpkg -r zedit
+```
+
+#### **Automated Test Execution**
+
+Using the dev.py wrapper for automated testing:
+
+```bash
+# Run just the tests
+./scripts/dev.py test
+
+# Run full workflow (test → build → package)
+./scripts/dev.py full --version 0.6.6
+
+# View available dev.py commands
+./scripts/dev.py help
+```
+
+### Manual Testing Checklist (Quick Reference)
+
+Before committing changes:
+
+```bash
+# 1. Basic functionality
+python zedit.py --help
+python zedit.py --version
+
+# 2. List mappings
+python zedit.py --list
+
+# 3. Test file opening (dry-run)
+python zedit.py --dry-run /etc/hosts
+python zedit.py --dump /etc/hosts
+
+# 4. Configuration
+python zedit.py --init-config
+python zedit.py --list
+```
+
+## Build and Packaging
+
+### Local Build
+
+```bash
+# CMake is used for packaging and distribution
+mkdir -p build
+cd build
+cmake ..
+make
+cd ..
+
+# Creates DEB package in build/
+ls -la build/*.deb
+```
+
+### Creating Release Packages
+
+GitHub Actions automatically creates packages on release:
+
+1. **DEB Package**: `zedit-VERSION-Linux-amd64.deb`
+   - Installs zedit.py to `/usr/local/bin/`
+   - Installs man page
+   - Includes dependencies
+
+2. **Source Archive**: `zedit-VERSION-source.tar.gz`
+   - Complete source code
+   - CMakeLists.txt, config files, documentation
+
+### Manual Package Creation
+
+```bash
+# Build locally
+cd build
+cmake ..
+make package
+
+# Creates .deb package
+ls *.deb
+```
+
+## Version Management
+
+Version is defined in `pyproject.toml`:
+
+```toml
+[project]
+version = "0.6.6"
+```
+
+When releasing:
+
+1. Use `./scripts/release.py 0.6.6` to automatically update version and create tag
+2. Or manually update version in `pyproject.toml`, create tag, and push
+3. GitHub Actions automatically creates the release
+
+## Documentation
+
+### Files to Update
+
+When making changes, update relevant documentation:
+
+- **README.md**: User-facing features and usage
+- **docs/user-guide.md**: Detailed usage instructions
+- **docs/design.md**: Architecture and design decisions
+- **docs/build.md**: Build and compilation instructions
+- **docs/github-actions.md**: CI/CD and release process
+- **DEVELOPMENT.md** (this file): Development workflow
+
+### Running Docs Locally
+
+```bash
+# Docs use Jekyll Slate theme
+# Preview at: https://pilakkat1964.github.io/z-edit/
+
+# Or build locally (requires Jekyll)
+cd docs
+bundle install
+bundle exec jekyll serve --source . --destination ../_site
+# View at http://localhost:4000/z-edit/
+```
+
+## GitHub Actions and CI/CD
+
+### Release Workflow (`.github/workflows/release.yml`)
+
+Triggered when you push a git tag (e.g., `v0.6.6`):
+
+1. Builds DEB package for Linux amd64
+2. Creates source archive
+3. Generates SHA256SUMS checksums
+4. Creates GitHub Release with all assets
+5. Publishes to releases page
+
+### GitHub Pages Workflow (`.github/workflows/pages.yml`)
+
+Automatically triggered when docs are updated:
+
+1. Builds Jekyll from `/docs` folder
+2. Deploys to GitHub Pages
+3. Available at: https://pilakkat1964.github.io/z-edit/
+
+### CI Workflow (`.github/workflows/ci.yml`)
+
+Runs on every push and pull request:
+
+- Test on Python 3.11, 3.12, 3.13
+- Linting with ruff
+- Security scanning with bandit
+- Coverage reports
+
+## Common Tasks
+
+### View Recent Commits
+
+```bash
+git log --oneline -10
+```
+
+### Check Branch Status
+
+```bash
+git status
+git branch -a
+```
+
+### Review Changes Before Commit
+
+```bash
+git diff zedit.py
+git diff config/
+```
+
+### Undo Changes
+
+```bash
+# Undo unstaged changes
+git checkout zedit.py
+
+# Undo staged changes
+git reset HEAD zedit.py
+
+# Undo last commit (keep changes)
+git reset --soft HEAD~1
+
+# Undo last commit (discard changes)
+git reset --hard HEAD~1
+```
+
+### Merge Latest Changes
+
+```bash
+# Update master from remote
+git fetch origin
+git merge origin/master
+
+# Or rebase your branch
+git rebase origin/master
+```
 
 ## Troubleshooting
 
-### Problem: "Command not found: cmake"
-
-**Solution**: Install CMake
+### Import Errors
 
 ```bash
-# macOS
-brew install cmake
+# If zedit.py can't be imported:
+# 1. Ensure Python 3.11+ is used
+python3 --version
 
-# Ubuntu/Debian
-sudo apt-get update && sudo apt-get install cmake
+# 2. Check if zedit.py is in the current directory
+ls -la zedit.py
 
-# Fedora/RHEL
-sudo dnf install cmake
+# 3. Try running directly
+python3 zedit.py --help
 ```
 
-### Problem: "uv command not found"
-
-**Solution**: `uv` is installed during setup. If not:
+### Configuration Issues
 
 ```bash
-pip install uv
-# Then run setup again
-./scripts/dev.py setup
+# If config loading fails:
+python zedit.py --list
+
+# Enable verbose output (if implemented):
+python zedit.py --verbose --list
 ```
 
-### Problem: Virtual environment issues
-
-**Solution**: Recreate the environment
+### Editor Resolution Issues
 
 ```bash
-rm -rf .venv
-./scripts/dev.py setup
+# Test editor resolution
+python zedit.py --dump /path/to/file
+
+# Check what editor would be used
+python -c "from zedit import resolve_editor; print(resolve_editor('/etc/hosts'))"
 ```
 
-### Problem: "Git push failed"
+## Getting Help
 
-**Solution**: Verify GitHub access
+- **GitHub Issues**: Report bugs or request features
+- **GitHub Discussions**: Ask questions about development
+- **Code Comments**: Read inline documentation in zedit.py
+- **AGENTS.md**: Comprehensive project architecture guide
 
-```bash
-# Test SSH connection
-ssh git@github.com
+## Code Style
 
-# Or test HTTPS
-git remote -v  # Should show GitHub remote
+Z-Edit follows these conventions:
 
-# Ensure SSH key is set up
-ssh-add ~/.ssh/id_ed25519
+- **Python**: PEP 8, 4-space indentation
+- **Naming**: snake_case for functions/variables, CamelCase for classes
+- **Docstrings**: Include for all public functions and classes
+- **Comments**: Explain "why", not "what"
+- **Line Length**: Max 100 characters (match existing code)
+
+Example:
+
+```python
+def my_function(param1, param2):
+    """Brief description of what the function does.
+    
+    Longer description if needed, explaining the purpose
+    and usage of this function.
+    
+    Args:
+        param1: Description of param1
+        param2: Description of param2
+        
+    Returns:
+        Description of return value
+    """
+    # Do work
+    return result
 ```
 
-### Problem: Tests fail
+## Contributing
 
-**Solution**: Check test output
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Make changes following the workflow patterns above
+4. Test thoroughly
+5. Commit with clear messages
+6. Push to your fork
+7. Create a pull request
 
-```bash
-# Run tests with verbose output
-./scripts/dev.py test
-
-# Or with your custom test command
-python -m pytest tests/ -v --tb=short
-```
-
-### Problem: "Release creation timeout"
-
-**Solution**: GitHub Actions is still building. Check manually:
-
-```bash
-# View release page
-open https://github.com/pilakkat1964/z-edit/releases/tag/v0.2.0
-
-# Or use gh CLI
-gh release view v0.2.0 --repo pilakkat1964/z-edit
-
-# Check Actions
-gh run list --repo pilakkat1964/z-edit --workflow release.yml
-```
+See GitHub for current issues and feature requests.
 
 ---
 
-## Architecture
-
-The script is designed for maintainability:
-
-**Core Components:**
-- `Context` class: Holds project paths and execution state
-- `run_cmd()`: Unified command execution with logging
-- Command functions: `cmd_setup()`, `cmd_build()`, etc.
-- Color logging: ANSI colored output for clarity
-
-**Key Design Decisions:**
-- No external dependencies (except uv which is installed)
-- Dry-run mode for testing workflows
-- Interactive prompts for critical operations (git staging)
-- Comprehensive error handling
-- Clear logging with color codes
-
-**Adding New Commands:**
-See `scripts/README.md` for examples.
-
----
-
-## Performance Tips
-
-1. **Fast development cycle**:
-   ```bash
-   ./scripts/dev.py package --skip-source  # Skip source archive
-   ```
-
-2. **Test workflow before committing**:
-   ```bash
-   ./scripts/dev.py --dry-run full --version 0.2.0
-   ```
-
-3. **Reuse build directory**: Don't delete `build/` between builds
-   (Incremental builds are much faster)
-
-4. **Parallel testing**: pytest runs tests in parallel by default
-   (you can customize with `pytest.ini_options` in pyproject.toml)
-
----
-
-## Related Files
-
-- `scripts/dev.py` - Main workflow script (this reference)
-- `scripts/README.md` - Detailed command documentation
-- `scripts/QUICKREF.py` - Quick reference with examples
-- `pyproject.toml` - Project metadata and dependencies
-- `.github/workflows/release.yml` - GitHub Actions release workflow
-- `CMakeLists.txt` - Build configuration
-- `tests/` - Test suite directory
-
----
-
-## Support
-
-For issues or questions:
-1. Check `scripts/README.md` for detailed command docs
-2. Run with `--verbose` to see all commands
-3. Try `--dry-run` to test without changes
-4. Check GitHub Issues: https://github.com/pilakkat1964/z-edit/issues
-
----
-
-## Version
-
-Created: 2026-04-15  
-Script Version: 1.0.0  
-Compatible with: zedit 0.1.0+, Python 3.11+
+**Last Updated:** 2026-04-16  
+**Z-Edit Version:** 0.6.5  
+**Python Support:** 3.11+  
+**Project:** Smart file editor launcher with MIME-type aware editor selection

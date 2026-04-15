@@ -1,275 +1,381 @@
-# Development Scripts
+# Z-Edit Development Scripts
 
-This directory contains automation scripts for the zedit development workflow.
+This directory contains utilities for streamlining the z-edit development workflow.
 
-## dev.py - Development Workflow Wrapper
+## `dev.py` - Development Workflow Wrapper
 
-The main script that wraps the complete development and release cycle.
+A comprehensive tool for managing the entire development lifecycle from setup to release.
 
 ### Quick Start
 
 ```bash
-# Set up environment (one time)
+# First time setup
 ./scripts/dev.py setup
 
-# Development cycle
-./scripts/dev.py build    # Build locally
-./scripts/dev.py test     # Run tests
-./scripts/dev.py package  # Build packages
+# Daily development
+./scripts/dev.py test
+
+# Create packages
+./scripts/dev.py package --version 0.6.6
 
 # Release
-./scripts/dev.py release --version 0.2.0
-
-# Complete workflow (setup → build → test → package → release)
-./scripts/dev.py full --version 0.2.0
+./scripts/release.py 0.6.6
 ```
 
-### Features
+### Available Commands
 
-- **Environment Setup**: Creates virtual environment and installs dependencies using `uv`
-- **Local Building**: CMake-based build with wheel generation disabled (faster packaging)
-- **Testing**: Runs pytest with coverage reporting
-- **Packaging**: Creates DEB packages and source archives
-- **Version Control**: Interactive git review, staging, and commit
-- **Release Automation**: Creates git tags and triggers GitHub Actions
-
-### Common Workflows
-
-#### Development Iteration
-
-```bash
-# Make changes, then:
-./scripts/dev.py build   # Quick rebuild
-./scripts/dev.py test    # Run tests
-```
-
-#### Prepare Release
-
-```bash
-# When ready to release:
-./scripts/dev.py full --version 0.2.0
-
-# Or step by step:
-./scripts/dev.py build
-./scripts/dev.py test
-./scripts/dev.py package
-./scripts/dev.py release --version 0.2.0
-```
-
-#### Staging Release (for QA)
-
-```bash
-./scripts/dev.py release --version 0.2.0-rc1 --stage
-```
-
-This creates a staging release tag (`v0.2.0-rc1-stage`) for testing before final release.
-
-### Options
-
-Global options:
-- `-v, --verbose`: Show all commands being executed
-- `--dry-run`: Show what would be done without executing
-
-#### setup
+#### `setup`
+Set up the development environment with virtual environment and dependencies.
 
 ```bash
 ./scripts/dev.py setup
 ```
 
-Sets up development environment:
-- Creates virtual environment if needed
-- Installs dependencies via `uv sync --all-extras`
-- Ready for development
+Creates:
+- Virtual environment in `.venv/`
+- Installs z-edit with dev dependencies
+- Ready for development and testing
 
-#### build
-
-```bash
-./scripts/dev.py build
-```
-
-Builds the project locally:
-- Runs CMake configuration
-- Compiles and links
-- Suitable for testing locally before packaging
-
-#### test
+#### `test`
+Run tests and validations on the z-edit codebase.
 
 ```bash
 ./scripts/dev.py test
 ```
 
-Runs the test suite:
-- Executes pytest with verbose output
-- Generates coverage reports
-- Creates minimal test suite if none exists
+Tests:
+- Python syntax validation (py_compile)
+- CLI help command
+- CLI version command
 
-#### package
+#### `build`
+Build the project locally using CMake (for creating DEB packages).
+
+```bash
+./scripts/dev.py build
+```
+
+Performs:
+- CMake configuration
+- Make build
+- Creates build artifacts in `./build/`
+
+#### `package`
+Create distributable packages (DEB and source archive).
 
 ```bash
 ./scripts/dev.py package [--version VERSION] [--skip-deb] [--skip-source]
 ```
 
-Creates distributable packages:
-- DEB package for Debian/Ubuntu (in `build/`)
-- Source archive (.tar.gz)
-- Version auto-detected from `pyproject.toml` if not specified
-
 Options:
-- `--version`: Override version for source archive
-- `--skip-deb`: Skip DEB generation (faster for testing)
-- `--skip-source`: Skip source archive (keep DEB only)
+- `--version VERSION`: Specify package version (auto-detected from pyproject.toml if not given)
+- `--skip-deb`: Skip DEB package creation (faster)
+- `--skip-source`: Skip source archive creation
 
-#### release
+Creates:
+- DEB package: `build/zedit-VERSION-Linux-amd64.deb`
+- Source archive: `zedit-VERSION-source.tar.gz`
+
+#### `release`
+Create and publish a release to GitHub.
 
 ```bash
-./scripts/dev.py release [--version VERSION] [--stage] [--no-wait] [--timeout SECONDS]
+./scripts/dev.py release [--version VERSION] [--stage] [--no-wait]
 ```
 
-Creates and publishes a release:
-1. Reviews git status and prompts to stage changes
-2. Creates a commit with release notes
-3. Pushes to upstream
-4. Creates and pushes git version tag
-5. Waits for GitHub Actions to build and publish release
+Workflow:
+1. Reviews git status
+2. Creates release commit
+3. Creates git tag (e.g., `v0.6.6`)
+4. Pushes to GitHub
+5. GitHub Actions automatically builds the release
 
 Options:
-- `--version`: Override version (default: from `pyproject.toml`)
-- `--stage`: Create staging release (adds `-stage` to tag name)
-- `--no-wait`: Don't wait for GitHub Actions to complete
-- `--timeout SECONDS`: How long to wait for release (default: 300s)
-- `--commit-msg`: Custom commit message
+- `--version VERSION`: Release version (auto-detected from pyproject.toml if not given)
+- `--stage`: Creates staging release (adds `-stage` suffix for QA)
+- `--no-wait`: Don't wait for GitHub Actions completion
+- `--commit-msg MSG`: Custom commit message
+- `--timeout SECONDS`: Timeout for GitHub Actions polling (default: 300s)
 
-#### full
+#### `full`
+Run complete workflow: test → build → package → release.
 
 ```bash
-./scripts/dev.py full [--version VERSION] [--stage] [--no-wait]
+./scripts/dev.py full --version 0.6.6
 ```
 
-Runs complete workflow:
-1. Sets up environment
-2. Builds locally
-3. Runs tests
-4. Creates packages
-5. Creates release
+Runs all steps sequentially, stopping on first failure.
 
-This is the recommended command for releasing new versions.
+### Global Options
 
-### Prerequisites
-
-- Python 3.11+
-- `uv` package manager (auto-installed via setup)
-- `cmake` 3.20+
-- `git` with GitHub remote
-- `gh` CLI tool (for release automation)
-- Build tools: `make`, `gcc` (for building Debian packages)
+- `-v, --verbose`: Show detailed command output
+- `--dry-run`: Show commands without executing them
 
 ### Examples
 
-**First time setup:**
+**Typical development session:**
 ```bash
-./scripts/dev.py setup
+# Make changes to zedit.py, config files, etc.
+
+# Test your changes
+./scripts/dev.py test
+
+# When ready to release
+./scripts/dev.py full --version 0.6.6
 ```
 
-**Quick test after changes:**
+**Package without release:**
 ```bash
-./scripts/dev.py build && ./scripts/dev.py test
+./scripts/dev.py test
+./scripts/dev.py build
+./scripts/dev.py package --version 0.6.6
 ```
 
-**Release new version (0.2.0):**
+**Create staging release for QA:**
 ```bash
-# Update pyproject.toml version first, then:
-./scripts/dev.py full --version 0.2.0
+./scripts/dev.py release --version 0.6.6 --stage
 ```
 
-**Test without actually doing anything:**
+**Dry-run (see what would happen):**
 ```bash
-./scripts/dev.py full --version 0.2.0 --dry-run --verbose
+./scripts/dev.py full --version 0.6.6 --dry-run
 ```
 
-**Release a release candidate:**
+**Verbose output:**
 ```bash
-./scripts/dev.py release --version 0.2.0-rc1 --stage
+./scripts/dev.py test --verbose
 ```
 
-### Troubleshooting
+## Other Scripts
 
-**"Command not found: cmake"**
+### `release.py` - Automated Release Script
+
+A specialized tool for creating releases with synchronized version updates across all files.
+This is the **recommended method** for creating releases as it ensures all version files stay in sync.
+
+#### Quick Start
+
 ```bash
-# macOS
-brew install cmake
+# Simple release
+./scripts/release.py 0.6.6
 
-# Ubuntu/Debian
-sudo apt-get install cmake
+# With custom changelog message
+./scripts/release.py 0.6.6 --message "Added new features and bugfixes"
 
-# Fedora/RHEL
-sudo dnf install cmake
+# Dry-run (see what would happen without making changes)
+./scripts/release.py 0.6.6 --dry-run
+
+# Verbose output
+./scripts/release.py 0.6.6 --verbose
 ```
 
-**"Command not found: uv"**
-The script should install `uv` during setup. If not:
+#### What It Does
+
+The script automates the full release workflow in a single command:
+
+1. **Validates** version format (X.Y.Z)
+2. **Updates** version in all 3 locations:
+   - `CMakeLists.txt` - project VERSION
+   - `pyproject.toml` - [project] version
+   - `debian/changelog` - adds new entry with timestamp
+3. **Creates** git commit with all version updates
+4. **Pushes** commit to `origin/master`
+5. **Creates** annotated git tag
+6. **Pushes** tag to origin (triggers GitHub Actions)
+
+GitHub Actions then automatically:
+- Builds the .deb package for amd64
+- Creates install .tar.gz archive
+- Generates source .tar.gz archive
+- Creates GitHub Release with all assets
+
+#### Usage Options
+
 ```bash
-pip install uv
+./scripts/release.py VERSION [OPTIONS]
+
+positional arguments:
+  VERSION               Release version (e.g., 0.6.6)
+
+options:
+  -h, --help            Show this help message
+  -m, --message TEXT    Release message for changelog entry
+  -d, --dry-run         Show what would be done without making changes
+  -v, --verbose         Print detailed output
 ```
 
-**Virtual environment issues**
+#### Examples
+
+**Standard release:**
 ```bash
-# Recreate environment
-rm -rf .venv
-./scripts/dev.py setup
+./scripts/release.py 0.6.6
+# Prompts for confirmation, then creates release
 ```
 
-**Git push fails**
-Ensure:
-- GitHub remote is configured: `git remote -v`
-- SSH key is set up: `git push origin master` (test)
-- GitHub token has necessary permissions
+**Release with custom changelog message:**
+```bash
+./scripts/release.py 0.6.6 --message "Performance improvements and new CLI options"
+```
 
-### Performance Tips
+**Preview what would happen:**
+```bash
+./scripts/release.py 0.6.6 --dry-run
+# Shows all changes that would be made
+```
 
-1. **Use `--skip-deb` during development**: Source archives are faster to create
-   ```bash
-   ./scripts/dev.py package --skip-deb
-   ```
+**Verbose with message:**
+```bash
+./scripts/release.py 0.6.6 --verbose --message "Release notes"
+# Shows detailed output including generated changelog entry
+```
 
-2. **Use `--dry-run` to test workflow**: Before committing to a release
-   ```bash
-   ./scripts/dev.py full --version 0.2.0 --dry-run --verbose
-   ```
+#### Output Example
 
-3. **Incremental builds**: The build directory is reused between builds
-   - Clean with: `rm -rf build/`
+```
+ℹ️ Starting z-edit release automation...
 
-### Architecture
+============================================================
+Release Confirmation: z-edit 0.6.6
+============================================================
+  Version: 0.6.6
+  Tag: v0.6.6
+  Debian revision: 0.6.6-1
+============================================================
 
-The script is structured around a `Context` object that holds:
-- Project root directory
-- Virtual environment path
-- Build directory
-- Execution mode (verbose, dry-run)
+📝 Updating version files...
+ℹ️ Updated CMakeLists.txt to version 0.6.6
+ℹ️ Updated pyproject.toml to version 0.6.6
+ℹ️ Updated debian/changelog with version 0.6.6-1
 
-Commands are implemented as separate functions that operate on the context:
-- `cmd_setup()`, `cmd_build()`, etc.
-- All use `run_cmd()` for shell execution with consistent logging
+💾 Committing changes...
+ℹ️ Created commit: release: bump version to 0.6.6
 
-### Adding New Commands
+📤 Pushing version commit...
+ℹ️ Pushed version commit to origin/master
 
-To add a new command, follow this pattern:
+🏷️  Creating and pushing tag...
+ℹ️ Created tag: v0.6.6
+ℹ️ Pushed tag to origin: v0.6.6
 
-```python
-def cmd_mycommand(args, ctx: Context) -> int:
-    """Handle mycommand subcommand."""
-    try:
-        # Your logic here
-        log("Command complete", "success")
-        return 0
-    except Exception as e:
-        log(f"Command failed: {e}", "error")
-        return 1
+============================================================
+RELEASE SUMMARY
+============================================================
+  CMakeLists.txt            VERSION              → 0.6.6
+  pyproject.toml            version              → 0.6.6
+  debian/changelog          version              → 0.6.6-1
 
-# In main(), add to subparsers:
-my_parser = subparsers.add_parser("mycommand", help="Description")
-# Add arguments as needed
+Next steps:
+  1. GitHub Actions will build release assets
+  2. Download from: https://github.com/pilakkat1964/z-edit/releases/tag/v0.6.6
+  3. Install via: sudo apt install ./zedit-0.6.6-Linux.deb
+============================================================
 
-# Add to commands dict:
-"mycommand": cmd_mycommand,
+✅ ✨ Release process complete!
+ℹ️ GitHub Actions will now build the release assets.
+```
+
+#### Error Handling
+
+The script includes validation for:
+- **Invalid version format** - Must be X.Y.Z (e.g., 0.6.5)
+- **Uncommitted changes** - Working tree must be clean
+- **Duplicate tag** - Cannot create release with existing tag
+- **Git operations** - Handles push/commit failures gracefully
+
+#### Comparison with dev.py
+
+| Feature | `release.py` | `dev.py release` |
+|---------|-------------|-----------------|
+| **Speed** | Fast (30s) | Slower (2-5m) |
+| **Complexity** | Simple, focused | Complex, multi-step |
+| **User confirmation** | Yes | Depends on options |
+| **Changelog auto-generation** | Yes | No |
+| **Dry-run support** | Yes | Yes |
+| **Version sync** | Automatic | Manual |
+
+**Recommendation:** Use `release.py` for standard releases. Use `dev.py release` for advanced scenarios like staging releases.
+
+### `activate.sh` - Virtual Environment Activation
+
+Automatic virtual environment setup and activation script.
+
+```bash
+source scripts/activate.sh
+```
+
+Features:
+- Detects if `.venv` exists
+- Creates it using `uv` (if available) or standard `venv`
+- Installs/upgrades pip, setuptools, wheel
+- Installs project dependencies
+- Activates the virtual environment
+
+Use this for interactive development sessions.
+
+### `with-venv` - Run Commands in Virtual Environment
+
+Wrapper to execute commands within the project's virtual environment without activation.
+
+```bash
+scripts/with-venv python zedit.py --help
+scripts/with-venv pytest
+scripts/with-venv uv pip install somepackage
+```
+
+Useful for:
+- CI/CD pipelines
+- One-off command execution
+- Scripts that need consistent environment
+
+### `dev.py` - Development Workflow Wrapper
+
+A comprehensive tool for managing the entire development lifecycle from setup to release.
+
+Note: The `dev.py release` command is now superseded by `release.py` for most use cases.
+Use `dev.py` for complex release scenarios like staging releases or custom commit messages.
+
+## Requirements
+
+- Python 3.11+
+- CMake (for building DEB packages)
+- Git (for version control)
+- Standard Unix tools (make, etc.)
+
+The dev.py script handles Python dependency installation via pip and uv.
+
+## Quick Reference
+
+### For Daily Development
+
+```bash
+# First time
+source scripts/activate.sh
+
+# After that, just make changes and test
+python zedit.py --help
+python -m pytest
+```
+
+### For Packaging
+
+```bash
+./scripts/dev.py build
+./scripts/dev.py package
+```
+
+### For Releasing
+
+```bash
+# Recommended (fast, simple)
+./scripts/release.py 0.6.6
+
+# Or use dev.py for complex scenarios
+./scripts/dev.py full --version 0.6.6
+```
+
+### For CI/CD Integration
+
+```bash
+scripts/with-venv python zedit.py --help
+scripts/with-venv pytest
 ```
