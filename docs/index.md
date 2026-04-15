@@ -82,6 +82,12 @@ zedit --init-config          # Create user config
   - Release checklist
   - CI/CD pipeline setup
 
+- **[GitHub Actions CI/CD](github-actions.md)** - Automation workflows
+  - Continuous Integration (testing, linting)
+  - Automated Release (multi-platform packaging)
+  - Source and Debian packages (amd64, arm64)
+  - Security scanning
+
 ---
 
 ## 💡 Use Cases
