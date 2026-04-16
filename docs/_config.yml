@@ -1,11 +1,11 @@
 # GitHub Pages Jekyll Configuration for z-edit
-# Theme: jekyll-theme-slate
+# Theme: jekyll-theme-architect
 
 # Base URL for GitHub Pages deployment
 baseurl: /z-edit
 
 # Theme
-theme: jekyll-theme-slate
+theme: jekyll-theme-architect
 
 # Site Information
 title: Z-Edit
